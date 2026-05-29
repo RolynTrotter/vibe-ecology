@@ -203,7 +203,7 @@ export const SPECIES = [
     size: 1.3, speed: 0.15, sense: 9,
     metabolism: 0.085, maxEnergy: 80, hungerAt: 0.8, eatGain: 0.55,
     matureAge: 350, reproEnergy: 60, reproCost: 36, reproCooldown: 480,
-    crowdRadius: 16, crowdLimit: 1, fleeFactor: 0,
+    crowdRadius: 16, crowdLimit: 1, fleeFactor: 0, lifespan: 2400,
     wexle: { food: 9, material: 5, value: 8 },
   },
   {
@@ -214,7 +214,7 @@ export const SPECIES = [
     size: 1.0, speed: 0.22, sense: 10,
     metabolism: 0.062, maxEnergy: 46, hungerAt: 0.72, eatGain: 0.85,
     matureAge: 230, reproEnergy: 36, reproCost: 20, reproCooldown: 360,
-    crowdRadius: 13, crowdLimit: 1, fleeFactor: 0,         // kept sparse
+    crowdRadius: 13, crowdLimit: 1, fleeFactor: 0, lifespan: 1500, // kept sparse
     wexle: { food: 6, material: 3, value: 6 },
   },
   {
@@ -225,7 +225,7 @@ export const SPECIES = [
     size: 2.2, speed: 0.14, sense: 12,
     metabolism: 0.07, maxEnergy: 120, hungerAt: 0.82, eatGain: 0.5,
     matureAge: 520, reproEnergy: 92, reproCost: 56, reproCooldown: 720,
-    crowdRadius: 26, crowdLimit: 1, fleeFactor: 0,
+    crowdRadius: 26, crowdLimit: 1, fleeFactor: 0, lifespan: 3600,
     wexle: { food: 12, material: 8, value: 14 },
   },
 ];
