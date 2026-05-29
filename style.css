@@ -40,8 +40,9 @@ html, body {
 #hud {
   top: max(8px, env(safe-area-inset-top));
   left: max(8px, env(safe-area-inset-left));
-  min-width: 150px;
+  width: 172px;            /* fixed so changing digit widths don't reflow it */
   font-size: 13px;
+  font-variant-numeric: tabular-nums; /* stable-width numerals everywhere */
 }
 .hud-top {
   display: grid;
@@ -51,6 +52,7 @@ html, body {
 }
 .stat { display: flex; justify-content: space-between; gap: 8px; }
 .stat .label { color: var(--muted); }
+.stat span:last-child { font-variant-numeric: tabular-nums; }
 #score { font-weight: 700; }
 
 .sp-row {
