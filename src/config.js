@@ -167,9 +167,9 @@ export const SPECIES = [
     diet: ['qelp'],
     size: 0.9, speed: 0.16, sense: 6.5,
     metabolism: 0.05, maxEnergy: 42, hungerAt: 0.7, eatGain: 1.0,
-    matureAge: 140, reproEnergy: 28, reproCost: 15, reproCooldown: 200,
-    crowdRadius: 6, crowdLimit: 4, fleeFactor: 0.8,
-    wexle: { food: 6, material: 2, value: 4 },
+    matureAge: 130, reproEnergy: 26, reproCost: 14, reproCooldown: 165,
+    crowdRadius: 6, crowdLimit: 6, fleeFactor: 0.8, // dense + fast-breeding to
+    wexle: { food: 6, material: 2, value: 4 },       // withstand 3 predators
   },
   {
     id: 'latt', name: 'Latt', kind: 'animal',
@@ -212,9 +212,9 @@ export const SPECIES = [
     habitat: { elevation: [0.30, 1] },                      // flies over everything
     diet: ['ghoti', 'naze'],                                // generalist bird
     size: 1.0, speed: 0.22, sense: 10,
-    metabolism: 0.052, maxEnergy: 46, hungerAt: 0.72, eatGain: 0.85,
-    matureAge: 210, reproEnergy: 30, reproCost: 17, reproCooldown: 280,
-    crowdRadius: 9, crowdLimit: 2, fleeFactor: 0,
+    metabolism: 0.062, maxEnergy: 46, hungerAt: 0.72, eatGain: 0.85,
+    matureAge: 230, reproEnergy: 36, reproCost: 20, reproCooldown: 360,
+    crowdRadius: 13, crowdLimit: 1, fleeFactor: 0,         // kept sparse
     wexle: { food: 6, material: 3, value: 6 },
   },
   {
@@ -247,8 +247,8 @@ export const CONFIG = {
 
   initial: {
     qelp: 1400, naze: 1400, cacta: 500, muss: 700, mmmapple: 180, qorl: 450,
-    ghoti: 220, latt: 220, unclet: 120,
-    daot: 22, eagul: 70, qraken: 8,
+    ghoti: 300, latt: 220, unclet: 120,
+    daot: 22, eagul: 45, qraken: 8,
   },
 
   graph: {

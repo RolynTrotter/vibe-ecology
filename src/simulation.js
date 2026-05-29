@@ -14,10 +14,13 @@ export class Simulation {
   constructor() {
     this.world = new World();
     this.store = new EntityStore(CONFIG.sim.maxEntities);
+    // Bucket size is deliberately smaller than the largest interaction radius:
+    // big buckets would force every query (even a short-sighted Ghoti) to scan
+    // a huge neighbourhood. Smaller buckets mean small-radius queries touch far
+    // fewer candidates; the rare large-radius queries just scan an extra ring.
+    const bucket = Math.max(3, Math.ceil(MAX_INTERACTION_RADIUS / 2));
     this.grid = new SpatialGrid(
-      this.world.width, this.world.height,
-      Math.max(2, Math.ceil(MAX_INTERACTION_RADIUS)),
-      CONFIG.sim.maxEntities
+      this.world.width, this.world.height, bucket, CONFIG.sim.maxEntities
     );
     this.rng = makeRng(CONFIG.world.seed ^ 0x9e3779b9);
     this.tick = 0;
