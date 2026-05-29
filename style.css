@@ -195,8 +195,8 @@ html, body {
   line-height: 1.4;
 }
 
-/* ---- Stats menu (shares overlay/panel styling with harvest) ---- */
-#stats-overlay {
+/* ---- Stats / Dev menus (share overlay/panel styling with harvest) ---- */
+#stats-overlay, #dev-overlay {
   position: fixed;
   inset: 0;
   z-index: 20;
@@ -206,14 +206,56 @@ html, body {
   background: rgba(0, 0, 0, 0.45);
   padding: 16px;
 }
-#stats-overlay[hidden] { display: none; }
-#stats-menu {
+#stats-overlay[hidden], #dev-overlay[hidden] { display: none; }
+#stats-menu, #dev-menu {
   position: relative;
   width: min(420px, 100%);
-  max-height: 80vh;
+  max-height: 82vh;
   overflow-y: auto;
   padding: 14px 16px;
 }
+#dev-body h4 {
+  margin: 14px 0 6px;
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.dev-field {
+  display: grid;
+  grid-template-columns: 92px 1fr 38px;
+  align-items: center;
+  gap: 8px;
+  margin: 5px 0;
+  font-size: 12px;
+}
+.dev-field input[type="range"] { width: 100%; }
+.dev-key { color: var(--text); }
+.dev-val { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.dev-field input[type="text"],
+.dev-field select,
+.dev-num {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 5px 6px;
+  font-size: 13px;
+}
+.dev-select { width: 100%; padding: 8px; margin-bottom: 8px; }
+.dev-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.dev-btn {
+  padding: 8px 12px;
+  border: 1px solid var(--panel-border);
+  background: rgba(111, 219, 143, 0.14);
+  color: #6fdb8f;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.dev-create { width: 100%; margin-top: 10px; }
+.dev-diet { display: flex; flex-wrap: wrap; gap: 6px 12px; }
+.dev-check { font-size: 12px; display: flex; align-items: center; gap: 4px; }
 .tabs {
   display: flex;
   gap: 6px;

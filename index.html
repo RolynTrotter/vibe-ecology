@@ -33,6 +33,7 @@
 
   <!-- Bottom-right: controls -->
   <div id="controls">
+    <button id="btn-dev" title="Dev tools">🛠</button>
     <button id="btn-stats" title="Statistics">📊</button>
     <button id="btn-harvest" title="Harvesting & Colony">🧺</button>
     <button id="btn-play" title="Play / Pause">⏸</button>
@@ -68,6 +69,18 @@
       </div>
       <div id="stats-tabs" class="tabs"></div>
       <div id="stats-body"></div>
+    </div>
+  </div>
+
+  <!-- Dev tools menu (tabbed; hidden until opened) -->
+  <div id="dev-overlay" hidden>
+    <div id="dev-menu" class="panel" role="dialog" aria-label="Dev tools">
+      <div class="hm-head">
+        <span>Dev tools</span>
+        <button id="dev-close" aria-label="Close">✕</button>
+      </div>
+      <div id="dev-tabs" class="tabs"></div>
+      <div id="dev-body"></div>
     </div>
   </div>
 

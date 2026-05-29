@@ -59,8 +59,18 @@ after first load via the service worker).
 - **One finger drag** — pan the camera.
 - **Pinch** — zoom (mouse wheel on desktop).
 - **Minimap** (top-right) — tap/drag to jump the camera.
-- Bottom-right buttons: **Statistics** (📊), **Wexles** (🧺), **play/pause**,
-  **speed** (1/2/4/8×), **regenerate world** (⟳).
+- Bottom-right buttons: **Dev tools** (🛠), **Statistics** (📊), **Wexles**
+  (🧺), **play/pause**, **speed** (1/2/4/8×), **regenerate world** (⟳).
+
+### Dev tools (🛠)
+
+For balancing/development — tweaks apply to the running sim:
+- **Global** — tick rate (live), and world noise/coral/seed with a Regenerate.
+- **Species** — pick a species and drag sliders for its attributes (speed,
+  metabolism, reproduction, habitat crowding, harvest values, …); changes take
+  effect immediately. "Spawn +N" injects individuals into the live world.
+- **Create** — define a new species (name, color, kind, habitat preset, diet)
+  and add it; the world restarts so it seeds in. Capped at 31 species.
 
 ### Statistics (📊)
 

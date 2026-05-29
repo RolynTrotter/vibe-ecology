@@ -4,5 +4,6 @@ import './harvest.test.mjs';
 import './world.test.mjs';
 import './colony.test.mjs';
 import './foodweb.test.mjs';
+import './dev.test.mjs'; // last: mutates the global SPECIES roster
 
 await run();
