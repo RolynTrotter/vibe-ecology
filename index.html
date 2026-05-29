@@ -16,7 +16,7 @@
   <!-- World view -->
   <canvas id="view"></canvas>
 
-  <!-- Top-left: ecosystem readout -->
+  <!-- Top-left: compact ecosystem readout -->
   <div id="hud" class="panel">
     <div class="hud-top">
       <div class="stat"><span class="label">Health</span><span id="score">–</span></div>
@@ -24,13 +24,11 @@
       <div class="stat"><span class="label">Tick</span><span id="tick">0</span></div>
       <div class="stat"><span class="label">FPS</span><span id="fps">0</span></div>
     </div>
-    <div id="species"></div>
   </div>
 
   <!-- Top-right: minimap -->
   <div id="minimap-wrap" class="panel">
     <canvas id="minimap" width="220" height="160"></canvas>
-    <div id="legend"></div>
   </div>
 
   <!-- Bottom: population graph -->
@@ -38,10 +36,11 @@
 
   <!-- Bottom-right: controls -->
   <div id="controls">
+    <button id="btn-stats" title="Statistics">📊</button>
     <button id="btn-harvest" title="Harvesting">🧺</button>
     <button id="btn-play" title="Play / Pause">⏸</button>
     <button id="btn-speed" title="Speed">1×</button>
-    <button id="btn-graph" class="active" title="Toggle graph">📈</button>
+    <button id="btn-graph" title="Toggle graph">📈</button>
     <button id="btn-reset" title="Regenerate world">⟳</button>
   </div>
 
@@ -56,6 +55,18 @@
       <div id="hm-rows"></div>
       <p class="hm-hint">“As Needed” scales with the colony — the fastest once
         the Wexles are thriving. Over-harvest and a species can crash.</p>
+    </div>
+  </div>
+
+  <!-- Stats menu (tabbed; hidden until opened) -->
+  <div id="stats-overlay" hidden>
+    <div id="stats-menu" class="panel" role="dialog" aria-label="Statistics">
+      <div class="hm-head">
+        <span>Statistics</span>
+        <button id="stats-close" aria-label="Close">✕</button>
+      </div>
+      <div id="stats-tabs" class="tabs"></div>
+      <div id="stats-body"></div>
     </div>
   </div>
 

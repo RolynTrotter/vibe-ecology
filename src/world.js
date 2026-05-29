@@ -4,7 +4,7 @@
 //  the simulation. Fields are generated once and never recomputed.
 // ===========================================================================
 import {
-  CONFIG, TERRAIN_INFO, classifyTerrain, HABITAT_SOFTNESS, MIN_HABITABLE,
+  CONFIG, TERRAIN, TERRAIN_INFO, classifyTerrain, HABITAT_SOFTNESS, MIN_HABITABLE,
 } from './config.js';
 
 // Deterministic PRNG (mulberry32) so a seed reproduces a map.
@@ -66,7 +66,9 @@ export class World {
     const nElev = makeValueNoise(rng, lattice, lattice);
     const nMoist = makeValueNoise(rng, lattice, lattice);
     const nRock = makeValueNoise(rng, lattice, lattice);
+    const nCoral = makeValueNoise(rng, lattice, lattice);
     const s = cfg.noiseScale;
+    const cs = cfg.coralScale, cThr = cfg.coralThreshold;
     const [elev, moist, rock] = this.fields;
 
     for (let y = 0; y < this.height; y++) {
@@ -83,7 +85,13 @@ export class World {
         elev[i] = e;
         moist[i] = clamp01(m);
         rock[i] = clamp01(r);
-        this.terrain[i] = classifyTerrain(elev[i], moist[i], rock[i]);
+        let type = classifyTerrain(elev[i], moist[i], rock[i]);
+        // Coral grows in patches on water cells — a refuge feature, not a critter.
+        if ((type === TERRAIN.DEEP_WATER || type === TERRAIN.SHALLOW_WATER) &&
+            fbm(nCoral, x + 900, y + 900, cs) > cThr) {
+          type = TERRAIN.CORAL;
+        }
+        this.terrain[i] = type;
       }
     }
   }

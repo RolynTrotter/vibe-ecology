@@ -24,6 +24,7 @@ export const TERRAIN = {
   DIRT: 3,
   MUD: 4,
   ROCK: 5,
+  CORAL: 6,   // a feature on water cells (see World.generate); a fish refuge
 };
 
 export const TERRAIN_INFO = [
@@ -33,7 +34,14 @@ export const TERRAIN_INFO = [
   { id: 'dirt', name: 'Loam', color: '#7a5c3a', minimap: '#8a6a44' },
   { id: 'mud', name: 'Mud', color: '#574028', minimap: '#634a2f' },
   { id: 'rock', name: 'Rock', color: '#8a8a92', minimap: '#9a9aa2' },
+  { id: 'coral', name: 'Coral', color: '#e0738f', minimap: '#e88aa2' },
 ];
+
+// Coral is a refuge: any animal without `coralRefuge` can neither enter coral
+// cells nor hunt prey sitting on them. Pure predicate over a terrain type.
+export function coralHides(sp, terrainType) {
+  return terrainType === TERRAIN.CORAL && !sp.coralRefuge;
+}
 
 // Thresholds used to bucket fields into the discrete types above.
 export const TERRAIN_THRESHOLDS = {
@@ -148,17 +156,6 @@ export const SPECIES = [
     spreadRadius: 13, crowdLimit: 2, biteEnergy: 11,        // helicopter seeds
     wexle: { food: 8, material: 6, value: 6 },
   },
-  {
-    id: 'qorl', name: 'Qorl', kind: 'plant',
-    color: '#e08aa8',
-    habitat: { elevation: [0, 0.32] },                      // deep-water coral
-    size: 0.8,
-    growth: 0.35, maxEnergy: 24, matureAge: 110,
-    reproEnergy: 15, reproCost: 9, reproCooldown: 120,
-    spreadRadius: 3, crowdLimit: 6, biteEnergy: 7,
-    wexle: { food: 3, material: 5, value: 5 },
-  },
-
   // ---- Herbivores ----
   {
     id: 'ghoti', name: 'Ghoti', kind: 'animal',
@@ -168,8 +165,9 @@ export const SPECIES = [
     size: 0.9, speed: 0.16, sense: 6.5,
     metabolism: 0.05, maxEnergy: 42, hungerAt: 0.7, eatGain: 1.0,
     matureAge: 130, reproEnergy: 26, reproCost: 14, reproCooldown: 165,
-    crowdRadius: 6, crowdLimit: 6, fleeFactor: 0.8, // dense + fast-breeding to
-    wexle: { food: 6, material: 2, value: 4 },       // withstand 3 predators
+    crowdRadius: 6, crowdLimit: 6, fleeFactor: 0.8,
+    coralRefuge: true,                               // safe from predators in coral
+    wexle: { food: 6, material: 2, value: 4 },
   },
   {
     id: 'latt', name: 'Latt', kind: 'animal',
@@ -236,7 +234,9 @@ export const CONFIG = {
     width: 240,
     height: 176,
     seed: 1337,
-    noiseScale: 0.05,   // smaller => bigger landmasses/regions
+    noiseScale: 0.05,    // smaller => bigger landmasses/regions
+    coralScale: 0.10,    // coral patch noise frequency
+    coralThreshold: 0.56, // higher => less coral; fraction of water that's reef
   },
 
   sim: {
@@ -246,7 +246,7 @@ export const CONFIG = {
   },
 
   initial: {
-    qelp: 1400, naze: 1800, cacta: 500, muss: 700, mmmapple: 180, qorl: 450,
+    qelp: 1400, naze: 1800, cacta: 500, muss: 700, mmmapple: 180,
     ghoti: 300, latt: 220, unclet: 120,
     daot: 22, eagul: 45, qraken: 8,
   },
