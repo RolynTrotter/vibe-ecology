@@ -40,8 +40,17 @@ after first load via the service worker).
 - **One finger drag** — pan the camera.
 - **Pinch** — zoom (mouse wheel on desktop).
 - **Minimap** (top-right) — tap/drag to jump the camera.
-- Bottom-right buttons: **play/pause**, **speed** (1/2/4/8×), **toggle graph**,
-  **regenerate world**.
+- Bottom-right buttons: **harvesting menu** (🧺), **play/pause**, **speed**
+  (1/2/4/8×), **toggle graph**, **regenerate world**.
+
+### Harvesting
+
+The 🧺 button opens the harvesting menu. Per species, the Wexles can harvest
+**None / Some / A Lot / As Needed** — "As Needed" scales with colony size, so
+it ramps up as the colony grows. Harvested organisms leave the ecosystem and
+their food/material/value accumulate as colony resources. Over-harvest and you
+can crash a population — that's the tension. (The colony that consumes these
+resources is still to come; see issue #10.)
 
 ## Architecture
 
@@ -80,10 +89,11 @@ The sim is built to scale to the "quite large" end:
 - Rendering pre-bakes terrain to an offscreen canvas (one scaled blit) and
   draws only on-screen entities, batched by species.
 
-Run the headless checks:
+Run the checks:
 
 ```bash
-node tools/smoke_test.mjs     # asserts consistency over 3000 ticks
+npm test                      # unit tests (tests/*.test.mjs)
+node tools/smoke_test.mjs     # asserts sim consistency over 3000 ticks
 node tools/trace.mjs 20000    # prints the population trajectory
 ```
 

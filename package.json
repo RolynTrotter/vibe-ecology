@@ -1,0 +1,13 @@
+{
+  "name": "vibe-ecology",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A cute top-down ecosystem simulator.",
+  "scripts": {
+    "test": "node tests/run.mjs",
+    "smoke": "node tools/smoke_test.mjs",
+    "trace": "node tools/trace.mjs",
+    "serve": "python3 tools/serve.py"
+  }
+}
