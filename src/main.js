@@ -10,6 +10,7 @@ import { Renderer } from './renderer.js';
 import { attachInput } from './input.js';
 import { PopulationGraph } from './graphs.js';
 import { HarvestController } from './harvest.js';
+import { Colony } from './colony.js';
 import { UI } from './ui.js';
 
 const SPEEDS = [1, 2, 4, 8];
@@ -18,24 +19,23 @@ class Game {
   constructor() {
     this.canvas = document.getElementById('view');
     this.minimap = document.getElementById('minimap');
-    this.graphCanvas = document.getElementById('graph');
 
     this.sim = new Simulation();
     this.camera = new Camera(this.sim.world);
     this.renderer = new Renderer(this.canvas, this.minimap, this.sim.world);
-    this.graph = new PopulationGraph(this.graphCanvas);
     this.harvest = new HarvestController();
+    this.colony = new Colony();
     attachInput(this.canvas, this.camera, this.minimap);
 
     this.running = true;
     this.speedIdx = 0;
-    this.graphShown = false; // detailed "ledger" visuals start closed
     this.accumulator = 0;
     this.lastTime = performance.now();
     this.fps = 0;
     this._fpsAccum = 0;
     this._fpsFrames = 0;
     this._sinceSample = 0;
+    this._gw = 0; this._gh = 0; // last graph canvas size
 
     this.ui = new UI({
       onTogglePlay: () => (this.running = !this.running),
@@ -44,14 +44,12 @@ class Game {
         return SPEEDS[this.speedIdx];
       },
       onReset: () => this.reset(),
-      onToggleGraph: () => {
-        this.graphShown = !this.graphShown;
-        this.graphCanvas.style.display = this.graphShown ? 'block' : 'none';
-        return this.graphShown;
-      },
-    }, this.harvest, this.sim.world);
+    }, this.harvest, this.colony, this.sim.world);
 
-    this.graphCanvas.style.display = this.graphShown ? 'block' : 'none';
+    // The population graph lives inside the Stats > Over time tab; the UI owns
+    // the canvas, we own the rolling history.
+    this.graph = new PopulationGraph(this.ui.graphCanvas);
+
     this.resize();
     this.camera.fitToWidth(0.6);
     window.addEventListener('resize', () => this.resize());
@@ -62,21 +60,19 @@ class Game {
     this.sim = new Simulation();
     this.camera.world = this.sim.world;
     this.renderer = new Renderer(this.canvas, this.minimap, this.sim.world);
-    this.graph = new PopulationGraph(this.graphCanvas);
+    this.graph = new PopulationGraph(this.ui.graphCanvas);
+    this.colony = new Colony();
+    this.ui.colony = this.colony;
     this.ui.world = this.sim.world; // keep the Stats > Terrain tab in sync
     this.resize();
   }
 
   resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    this.renderer.resize(w, h, dpr);
-    this.camera.setViewport(w, h);
+    this.renderer.resize(window.innerWidth, window.innerHeight, dpr);
+    this.camera.setViewport(window.innerWidth, window.innerHeight);
     this.camera.clamp();
-    // Graph sized as a bottom strip.
-    const gw = Math.min(360, w - 20);
-    this.graph.resize(gw, 110, dpr);
+    this._gw = 0; // force the in-menu graph to re-fit on next draw
   }
 
   frame(now) {
@@ -91,6 +87,7 @@ class Game {
       while (this.accumulator >= tickDt && budget-- > 0) {
         this.sim.step();
         this.harvest.step(this.sim, tickDt);
+        this.colony.step(this.harvest, tickDt);
         this.accumulator -= tickDt;
         if (++this._sinceSample >= CONFIG.graph.sampleEvery) {
           this._sinceSample = 0;
@@ -100,7 +97,18 @@ class Game {
     }
 
     this.renderer.draw(this.sim, this.camera);
-    if (this.graphShown) this.graph.draw();
+
+    // Draw the graph only while its tab is on screen, re-fitting to its size.
+    if (this.ui.isGraphVisible()) {
+      const c = this.graph.canvas;
+      const cw = c.clientWidth, ch = 140;
+      if (cw && (cw !== this._gw || ch !== this._gh)) {
+        this.graph.resize(cw, ch, Math.min(window.devicePixelRatio || 1, 2));
+        c.style.height = ch + 'px';
+        this._gw = cw; this._gh = ch;
+      }
+      this.graph.draw();
+    }
 
     // FPS (smoothed over ~0.5s).
     this._fpsAccum += dt; this._fpsFrames++;

@@ -94,14 +94,6 @@ html, body {
 }
 .chip { display: flex; align-items: center; gap: 4px; }
 
-/* ---- Graph (bottom-left) ---- */
-#graph {
-  bottom: max(8px, env(safe-area-inset-bottom));
-  left: max(8px, env(safe-area-inset-left));
-  padding: 0;
-  overflow: hidden;
-}
-
 /* ---- Controls (bottom-right) ---- */
 #controls {
   position: fixed;
@@ -243,3 +235,43 @@ html, body {
   color: #6fdb8f;
 }
 #stats-body .sp-row { padding: 3px 0; font-size: 14px; }
+
+/* In-menu canvases (graph / food web / colony) */
+.menu-graph, .foodweb-canvas, .colony-canvas {
+  display: block;
+  width: 100%;
+  border-radius: 8px;
+  background: rgba(8, 11, 16, 0.6);
+}
+.foodweb-canvas { height: 250px; }
+.colony-canvas { height: 150px; margin-bottom: 10px; }
+
+/* Colony tracker */
+.colony-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 12px;
+}
+.cstat { display: flex; justify-content: space-between; gap: 8px; }
+.cstat .label { color: var(--muted); }
+.colony-buildings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.building {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: rgba(111, 219, 143, 0.12);
+  font-size: 12px;
+}
+.building.locked { opacity: 0.4; background: rgba(255, 255, 255, 0.03); }
+.building .b-req { color: var(--muted); font-size: 11px; }
+.building.locked .b-name { text-decoration: none; }
+.building:not(.locked) .b-req { display: none; }

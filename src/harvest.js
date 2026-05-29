@@ -20,7 +20,6 @@ const SOME_RATE = 0.5;        // a slow trickle (< 1/s by design)
 const ALOT_RATE = 4;          // heavy fixed draw
 const AS_NEEDED_BASE = 4;     // matches "a lot" at colony size 0...
 const AS_NEEDED_SCALE = 0.02; // ...and grows with the colony from there
-const COLONY_GAIN = 0.01;     // colonySize gained per unit of harvested value
 
 export class HarvestController {
   constructor() {
@@ -29,7 +28,7 @@ export class HarvestController {
     this.resources = { food: 0, material: 0, value: 0 };
     this.harvestedTotal = new Int32Array(NUM_SPECIES);
     this._accum = new Float32Array(NUM_SPECIES); // fractional quota carryover
-    this.colonySize = 0;                         // stub until #10
+    this.colonySize = 0;                         // driven by the Colony (#10)
     this._scratch = [];                          // reused index buffer
   }
 
@@ -73,7 +72,6 @@ export class HarvestController {
         this.resources.material += removed * w.material;
         this.resources.value += removed * w.value;
         this.harvestedTotal[idx] += removed;
-        this.colonySize += removed * w.value * COLONY_GAIN;
       }
     }
   }

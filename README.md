@@ -59,17 +59,27 @@ after first load via the service worker).
 - **One finger drag** — pan the camera.
 - **Pinch** — zoom (mouse wheel on desktop).
 - **Minimap** (top-right) — tap/drag to jump the camera.
-- Bottom-right buttons: **harvesting menu** (🧺), **play/pause**, **speed**
-  (1/2/4/8×), **toggle graph**, **regenerate world**.
+- Bottom-right buttons: **Statistics** (📊), **Wexles** (🧺), **play/pause**,
+  **speed** (1/2/4/8×), **regenerate world** (⟳).
 
-### Harvesting
+### Statistics (📊)
 
-The 🧺 button opens the harvesting menu. Per species, the Wexles can harvest
-**None / Some / A Lot / As Needed** — "As Needed" scales with colony size, so
-it ramps up as the colony grows. Harvested organisms leave the ecosystem and
-their food/material/value accumulate as colony resources. Over-harvest and you
-can crash a population — that's the tension. (The colony that consumes these
-resources is still to come; see issue #10.)
+A tabbed read-out, closed by default to keep the screen clean:
+- **Species** — live population per species.
+- **Over time** — the rolling population graph (√-scaled).
+- **Food web** — a reference diagram of who-eats-whom, derived from diets.
+- **Terrain** — % coverage of each terrain type.
+
+### Wexles: Harvesting & Colony (🧺)
+
+- **Harvest** tab — per species, set **None / Some / A Lot / As Needed**.
+  "As Needed" scales with the colony's size. Harvested organisms leave the
+  ecosystem; their food/material/value feed the colony. Over-harvest and a
+  species can crash — that's the tension.
+- **Colony** tab — the Wexle city. It eats harvested **food** to grow its
+  population (and shrinks if starved), unlocking buildings as it grows. The
+  colony's population is the real `colonySize` that "As Needed" scales with,
+  closing the loop. Visual + economy are still early (issue #10).
 
 ## Architecture
 
@@ -84,6 +94,8 @@ src/
   spatial.js                uniform-grid spatial index (counting sort)
   simulation.js             one tick of ecology (forage/eat/flee/reproduce)
   harvest.js                per-species harvesting + resource tally
+  colony.js                 Wexle city: grows on food, unlocks buildings
+  foodweb.js                trophic structure derived from diets
   camera.js                 world<->screen, pan/zoom, clamping
   input.js                  touch + mouse gestures
   renderer.js               terrain blit + culled, batched entity draw
