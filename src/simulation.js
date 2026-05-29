@@ -144,6 +144,14 @@ export class Simulation {
     s.energy[i] -= sp.metabolism * (0.6 + 0.4 * sp.size);
     if (s.energy[i] <= 0) { s.kill(i); return; }
 
+    // Senescence: past their lifespan, death chance ramps with age. Turnover
+    // caps standing populations and stops long-lived predators from slowly
+    // ratcheting up and grinding their prey to extinction.
+    if (sp.lifespan && s.age[i] > sp.lifespan) {
+      const over = (s.age[i] - sp.lifespan) / sp.lifespan;
+      if (this.rand() < 0.004 * (1 + over * 6)) { s.kill(i); return; }
+    }
+
     const px = s.x[i], py = s.y[i];
     let steerX = s.hx[i], steerY = s.hy[i];
     let acted = false;
