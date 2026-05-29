@@ -31,30 +31,31 @@
     <canvas id="minimap" width="220" height="160"></canvas>
   </div>
 
-  <!-- Bottom: population graph -->
-  <canvas id="graph" class="panel"></canvas>
-
   <!-- Bottom-right: controls -->
   <div id="controls">
     <button id="btn-stats" title="Statistics">📊</button>
-    <button id="btn-harvest" title="Harvesting">🧺</button>
+    <button id="btn-harvest" title="Harvesting & Colony">🧺</button>
     <button id="btn-play" title="Play / Pause">⏸</button>
     <button id="btn-speed" title="Speed">1×</button>
-    <button id="btn-graph" title="Toggle graph">📈</button>
     <button id="btn-reset" title="Regenerate world">⟳</button>
   </div>
 
-  <!-- Harvesting menu (hidden until opened) -->
+  <!-- Harvesting + Colony menu (tabbed; hidden until opened) -->
   <div id="harvest-overlay" hidden>
-    <div id="harvest-menu" class="panel" role="dialog" aria-label="Harvesting">
+    <div id="harvest-menu" class="panel" role="dialog" aria-label="Wexles">
       <div class="hm-head">
-        <span>Harvesting</span>
+        <span>Wexles</span>
         <button id="hm-close" aria-label="Close">✕</button>
       </div>
-      <div id="hm-resources" class="hm-resources"></div>
-      <div id="hm-rows"></div>
-      <p class="hm-hint">“As Needed” scales with the colony — the fastest once
-        the Wexles are thriving. Over-harvest and a species can crash.</p>
+      <div id="harvest-tabs" class="tabs"></div>
+      <div id="harvest-body">
+        <div id="harvest-panel">
+          <div id="hm-rows"></div>
+          <p class="hm-hint">“As Needed” scales with the colony — the fastest
+            once the Wexles are thriving. Over-harvest and a species can crash.</p>
+        </div>
+        <div id="colony-panel"></div>
+      </div>
     </div>
   </div>
 

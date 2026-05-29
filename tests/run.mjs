@@ -2,5 +2,7 @@
 import { run } from './harness.mjs';
 import './harvest.test.mjs';
 import './world.test.mjs';
+import './colony.test.mjs';
+import './foodweb.test.mjs';
 
 await run();

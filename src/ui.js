@@ -1,21 +1,26 @@
 // ===========================================================================
-//  UI — a compact always-on HUD (health / critters / tick / fps), plus two
-//  pop-up menus: Harvesting (per-species levels) and Stats (tabbed detail:
-//  species populations + terrain breakdown). The detailed "ledgers" are closed
-//  by default to keep the screen uncluttered.
+//  UI — compact always-on HUD plus two tabbed pop-up menus:
+//   • Wexles: Harvest (per-species levels) + Colony (city tracker)
+//   • Statistics: Species / Over time (graph) / Food web / Terrain
+//  Detailed panels only render while visible, to stay cheap on mobile.
 // ===========================================================================
 import { SPECIES, TERRAIN_INFO } from './config.js';
 import { ecosystemHealth } from './score.js';
 import { HARVEST_LEVELS, HARVEST_LABELS } from './harvest.js';
+import { BUILDINGS } from './colony.js';
+import { buildFoodWeb } from './foodweb.js';
 
 export class UI {
-  constructor(handlers, harvest, world) {
-    this.handlers = handlers; // { onTogglePlay, onSpeed, onReset, onToggleGraph }
+  constructor(handlers, harvest, colony, world) {
+    this.handlers = handlers; // { onTogglePlay, onSpeed, onReset }
     this.harvest = harvest;
+    this.colony = colony;
     this.world = world;
-    this.activeTab = 'species';
+    this.harvestTab = 'harvest';
+    this.statsTab = 'species';
 
     this.buildHarvestMenu();
+    this.buildColonyPanel();
     this.buildStatsMenu();
     this.wireControls();
 
@@ -25,12 +30,33 @@ export class UI {
     this.totalEl = document.getElementById('total');
   }
 
-  // ---- Harvesting menu --------------------------------------------------
+  // ---- tab helper -------------------------------------------------------
+  // Builds tab buttons into `tabsEl`; calls onSelect(id). Returns a select fn.
+  makeTabs(tabsEl, defs, panels, onSelect) {
+    const buttons = {};
+    const select = (id) => {
+      for (const d of defs) {
+        buttons[d.id].classList.toggle('active', d.id === id);
+        if (panels[d.id]) panels[d.id].style.display = d.id === id ? 'block' : 'none';
+      }
+      onSelect(id);
+    };
+    defs.forEach(d => {
+      const b = document.createElement('button');
+      b.className = 'tab';
+      b.textContent = d.label;
+      b.addEventListener('click', () => select(d.id));
+      tabsEl.appendChild(b);
+      buttons[d.id] = b;
+    });
+    return select;
+  }
+
+  // ---- Harvest menu -----------------------------------------------------
   buildHarvestMenu() {
     this.harvestOverlay = document.getElementById('harvest-overlay');
-    this.resourceEl = document.getElementById('hm-resources');
     const rows = document.getElementById('hm-rows');
-    this.levelButtons = {}; // speciesId -> { level -> button }
+    this.levelButtons = {};
 
     SPECIES.forEach(sp => {
       const row = document.createElement('div');
@@ -54,6 +80,17 @@ export class UI {
       row.append(label, seg);
       rows.appendChild(row);
     });
+
+    const panels = {
+      harvest: document.getElementById('harvest-panel'),
+      colony: document.getElementById('colony-panel'),
+    };
+    this.selectHarvestTab = this.makeTabs(
+      document.getElementById('harvest-tabs'),
+      [{ id: 'harvest', label: 'Harvest' }, { id: 'colony', label: 'Colony' }],
+      panels,
+      (id) => { this.harvestTab = id; if (id === 'colony') this.drawColony(); });
+    this.selectHarvestTab('harvest');
   }
 
   setLevel(speciesId, level) {
@@ -62,57 +99,84 @@ export class UI {
     for (const lv of HARVEST_LEVELS) group[lv].classList.toggle('active', lv === level);
   }
 
-  // ---- Stats menu (tabbed) ----------------------------------------------
+  buildColonyPanel() {
+    const panel = document.getElementById('colony-panel');
+    this.colonyCanvas = document.createElement('canvas');
+    this.colonyCanvas.className = 'colony-canvas';
+    this.colonyStatsEl = document.createElement('div');
+    this.colonyStatsEl.className = 'colony-stats';
+    const roster = document.createElement('div');
+    roster.className = 'colony-buildings';
+    this.buildingEls = BUILDINGS.map(b => {
+      const el = document.createElement('div');
+      el.className = 'building';
+      el.innerHTML = `<span class="b-icon">${b.icon}</span>` +
+        `<span class="b-name">${b.name}</span>` +
+        `<span class="b-req">pop ${b.pop}</span>`;
+      roster.appendChild(el);
+      return el;
+    });
+    panel.append(this.colonyCanvas, this.colonyStatsEl, roster);
+  }
+
+  // ---- Stats menu -------------------------------------------------------
   buildStatsMenu() {
     this.statsOverlay = document.getElementById('stats-overlay');
-    const tabsEl = document.getElementById('stats-tabs');
     const body = document.getElementById('stats-body');
 
-    const tabs = [
-      { id: 'species', label: 'Species' },
-      { id: 'terrain', label: 'Terrain' },
-    ];
-    this.tabButtons = {};
-    tabs.forEach(t => {
-      const b = document.createElement('button');
-      b.className = 'tab';
-      b.textContent = t.label;
-      b.addEventListener('click', () => this.selectTab(t.id));
-      tabsEl.appendChild(b);
-      this.tabButtons[t.id] = b;
-    });
-
-    // Species panel: a colored row per species, count updated while open.
+    // Species panel
     this.speciesPanel = document.createElement('div');
     this.countEls = SPECIES.map(sp => {
       const row = document.createElement('div');
       row.className = 'sp-row';
-      const dot = document.createElement('span');
-      dot.className = 'dot'; dot.style.background = sp.color;
-      const name = document.createElement('span');
-      name.className = 'sp-name'; name.textContent = sp.name;
+      row.innerHTML = `<span class="dot" style="background:${sp.color}"></span>` +
+        `<span class="sp-name">${sp.name}</span>`;
       const count = document.createElement('span');
       count.className = 'sp-count'; count.textContent = '0';
-      row.append(dot, name, count);
+      row.appendChild(count);
       this.speciesPanel.appendChild(row);
       return count;
     });
 
-    // Terrain panel: coverage per terrain type (recomputed when opened).
+    // Over-time panel (population graph canvas; PopulationGraph is wired by main)
+    this.overtimePanel = document.createElement('div');
+    this.graphCanvas = document.createElement('canvas');
+    this.graphCanvas.className = 'menu-graph';
+    const caption = document.createElement('p');
+    caption.className = 'hm-hint';
+    caption.textContent = 'Population over time (√-scaled so rare and abundant species both read).';
+    this.overtimePanel.append(this.graphCanvas, caption);
+
+    // Food-web panel
+    this.foodwebPanel = document.createElement('div');
+    this.fwCanvas = document.createElement('canvas');
+    this.fwCanvas.className = 'foodweb-canvas';
+    this.foodwebPanel.appendChild(this.fwCanvas);
+
+    // Terrain panel
     this.terrainPanel = document.createElement('div');
 
-    body.append(this.speciesPanel, this.terrainPanel);
-    this.selectTab(this.activeTab);
-  }
+    body.append(this.speciesPanel, this.overtimePanel, this.foodwebPanel, this.terrainPanel);
 
-  selectTab(id) {
-    this.activeTab = id;
-    for (const [tid, btn] of Object.entries(this.tabButtons)) {
-      btn.classList.toggle('active', tid === id);
-    }
-    this.speciesPanel.style.display = id === 'species' ? 'block' : 'none';
-    this.terrainPanel.style.display = id === 'terrain' ? 'block' : 'none';
-    if (id === 'terrain') this.renderTerrainPanel();
+    const panels = {
+      species: this.speciesPanel, overtime: this.overtimePanel,
+      foodweb: this.foodwebPanel, terrain: this.terrainPanel,
+    };
+    this.selectStatsTab = this.makeTabs(
+      document.getElementById('stats-tabs'),
+      [
+        { id: 'species', label: 'Species' },
+        { id: 'overtime', label: 'Over time' },
+        { id: 'foodweb', label: 'Food web' },
+        { id: 'terrain', label: 'Terrain' },
+      ],
+      panels,
+      (id) => {
+        this.statsTab = id;
+        if (id === 'terrain') this.renderTerrainPanel();
+        if (id === 'foodweb') this.drawFoodWeb();
+      });
+    this.selectStatsTab('species');
   }
 
   renderTerrainPanel() {
@@ -120,18 +184,108 @@ export class UI {
     const total = counts.reduce((a, b) => a + b, 0) || 1;
     this.terrainPanel.innerHTML = '';
     TERRAIN_INFO.forEach((t, i) => {
-      const pct = (counts[i] / total) * 100;
       const row = document.createElement('div');
       row.className = 'sp-row';
-      row.innerHTML =
-        `<span class="dot" style="background:${t.minimap}"></span>` +
+      row.innerHTML = `<span class="dot" style="background:${t.minimap}"></span>` +
         `<span class="sp-name">${t.name}</span>` +
-        `<span class="sp-count">${pct.toFixed(1)}%</span>`;
+        `<span class="sp-count">${((counts[i] / total) * 100).toFixed(1)}%</span>`;
       this.terrainPanel.appendChild(row);
     });
   }
 
-  // ---- Generic overlay toggle ------------------------------------------
+  // Size a menu canvas to its laid-out width and a fixed CSS height.
+  fitCanvas(canvas, cssH) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.style.height = cssH + 'px';
+    const w = canvas.clientWidth || 360;
+    canvas.width = w * dpr; canvas.height = cssH * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx, w, h: cssH };
+  }
+
+  drawFoodWeb() {
+    const { ctx, w, h } = this.fitCanvas(this.fwCanvas, 250);
+    ctx.clearRect(0, 0, w, h);
+    const fw = buildFoodWeb();
+    const pad = 30;
+    const rowH = (h - pad * 2) / Math.max(1, fw.maxLevel);
+    const pos = new Array(SPECIES.length);
+    fw.byLevel.forEach((arr, l) => {
+      const y = h - pad - l * rowH;          // level 0 at the bottom
+      arr.forEach((idx, k) => {
+        pos[idx] = { x: pad + (w - 2 * pad) * ((k + 0.5) / arr.length), y };
+      });
+    });
+    ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+    ctx.lineWidth = 1;
+    fw.edges.forEach(([from, to]) => {
+      ctx.beginPath();
+      ctx.moveTo(pos[from].x, pos[from].y);
+      ctx.lineTo(pos[to].x, pos[to].y);
+      ctx.stroke();
+    });
+    ctx.font = '10px system-ui';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    SPECIES.forEach((sp, i) => {
+      const p = pos[i];
+      ctx.fillStyle = sp.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#e8edf2';
+      ctx.fillText(sp.name, p.x, p.y - 12);
+    });
+  }
+
+  // Slime-mold-ish colony blob; grows with population, with orbiting Wexles.
+  drawColony() {
+    const { ctx, w, h } = this.fitCanvas(this.colonyCanvas, 150);
+    ctx.clearRect(0, 0, w, h);
+    const cx = w / 2, cy = h / 2;
+    const pop = this.colony.population;
+    const R = Math.min(h * 0.4, 8 + Math.sqrt(pop) * 4);
+    const t = performance.now() / 1000;
+    // tendrils / satellite blobs
+    ctx.fillStyle = '#2f8f5b';
+    for (let k = 0; k < 6; k++) {
+      const a = (k / 6) * Math.PI * 2 + t * 0.12;
+      ctx.beginPath();
+      ctx.arc(cx + Math.cos(a) * R * 0.8, cy + Math.sin(a) * R * 0.8, R * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // core
+    const g = ctx.createRadialGradient(cx, cy, 2, cx, cy, R);
+    g.addColorStop(0, '#7fe6a0'); g.addColorStop(1, '#2f8f5b');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+    // Wexles swimming just outside
+    const dots = Math.min(28, Math.round(pop));
+    ctx.fillStyle = '#dff3e6';
+    for (let k = 0; k < dots; k++) {
+      const a = (k / Math.max(1, dots)) * Math.PI * 2 + t * 0.5;
+      const rr = R + 8 + (k % 3) * 4;
+      ctx.beginPath();
+      ctx.arc(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, 1.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  updateColony() {
+    const r = this.harvest.resources;
+    this.colonyStatsEl.innerHTML =
+      `<div class="cstat"><span class="label">Wexles</span>` +
+      `<b>${Math.floor(this.colony.population).toLocaleString()}</b></div>` +
+      `<div class="cstat"><span class="label">🍞 Food</span>${Math.floor(r.food).toLocaleString()}</div>` +
+      `<div class="cstat"><span class="label">🧱 Material</span>${Math.floor(r.material).toLocaleString()}</div>` +
+      `<div class="cstat"><span class="label">💎 Value</span>${Math.floor(r.value).toLocaleString()}</div>`;
+    const pop = this.colony.population;
+    BUILDINGS.forEach((b, i) => {
+      this.buildingEls[i].classList.toggle('locked', pop < b.pop);
+    });
+    this.drawColony();
+  }
+
+  // ---- generic overlay + control wiring --------------------------------
   toggle(overlay, show) {
     const open = show ?? overlay.hasAttribute('hidden');
     overlay.toggleAttribute('hidden', !open);
@@ -141,25 +295,23 @@ export class UI {
   wireControls() {
     const play = document.getElementById('btn-play');
     play.addEventListener('click', () => {
-      const running = this.handlers.onTogglePlay();
-      play.textContent = running ? '⏸' : '▶';
+      play.textContent = this.handlers.onTogglePlay() ? '⏸' : '▶';
     });
     document.getElementById('btn-speed').addEventListener('click', (e) => {
       e.target.textContent = this.handlers.onSpeed() + '×';
     });
     document.getElementById('btn-reset').addEventListener('click',
       () => this.handlers.onReset());
-    const g = document.getElementById('btn-graph');
-    g.addEventListener('click', () => {
-      g.classList.toggle('active', this.handlers.onToggleGraph());
-    });
 
-    this.wireMenu('btn-harvest', this.harvestOverlay, 'hm-close');
+    this.wireMenu('btn-harvest', this.harvestOverlay, 'hm-close',
+      () => { if (this.harvestTab === 'colony') this.drawColony(); });
     this.wireMenu('btn-stats', this.statsOverlay, 'stats-close',
-      () => { if (this.activeTab === 'terrain') this.renderTerrainPanel(); });
+      () => {
+        if (this.statsTab === 'terrain') this.renderTerrainPanel();
+        if (this.statsTab === 'foodweb') this.drawFoodWeb();
+      });
   }
 
-  // Wire a control button + close button + backdrop tap for an overlay.
   wireMenu(btnId, overlay, closeId, onOpen) {
     const btn = document.getElementById(btnId);
     const close = () => { this.toggle(overlay, false); btn.classList.remove('active'); };
@@ -172,6 +324,11 @@ export class UI {
     overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
   }
 
+  // True when the population graph is on screen (Stats > Over time).
+  isGraphVisible() {
+    return this.statsTab === 'overtime' && !this.statsOverlay.hasAttribute('hidden');
+  }
+
   update(sim, fps) {
     const counts = sim.store.counts;
     const health = ecosystemHealth(counts);
@@ -182,19 +339,13 @@ export class UI {
     this.totalEl.textContent = sim.store.living.toLocaleString();
     if (this.fpsEl) this.fpsEl.textContent = fps.toFixed(0);
 
-    // Per-species counts only while the Stats > Species tab is open.
-    if (this.activeTab === 'species' && !this.statsOverlay.hasAttribute('hidden')) {
+    if (this.statsTab === 'species' && !this.statsOverlay.hasAttribute('hidden')) {
       for (let i = 0; i < this.countEls.length; i++) {
         this.countEls[i].textContent = counts[i].toLocaleString();
       }
     }
-    // Harvest resource tally only while that menu is open.
-    if (!this.harvestOverlay.hasAttribute('hidden')) {
-      const r = this.harvest.resources;
-      this.resourceEl.innerHTML =
-        `<span>🍞 ${Math.floor(r.food).toLocaleString()}</span>` +
-        `<span>🧱 ${Math.floor(r.material).toLocaleString()}</span>` +
-        `<span>💎 ${Math.floor(r.value).toLocaleString()}</span>`;
+    if (this.harvestTab === 'colony' && !this.harvestOverlay.hasAttribute('hidden')) {
+      this.updateColony();
     }
   }
 }
