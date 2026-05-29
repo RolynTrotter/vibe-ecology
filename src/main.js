@@ -29,7 +29,7 @@ class Game {
 
     this.running = true;
     this.speedIdx = 0;
-    this.graphShown = true;
+    this.graphShown = false; // detailed "ledger" visuals start closed
     this.accumulator = 0;
     this.lastTime = performance.now();
     this.fps = 0;
@@ -49,8 +49,9 @@ class Game {
         this.graphCanvas.style.display = this.graphShown ? 'block' : 'none';
         return this.graphShown;
       },
-    }, this.harvest);
+    }, this.harvest, this.sim.world);
 
+    this.graphCanvas.style.display = this.graphShown ? 'block' : 'none';
     this.resize();
     this.camera.fitToWidth(0.6);
     window.addEventListener('resize', () => this.resize());
@@ -62,6 +63,7 @@ class Game {
     this.camera.world = this.sim.world;
     this.renderer = new Renderer(this.canvas, this.minimap, this.sim.world);
     this.graph = new PopulationGraph(this.graphCanvas);
+    this.ui.world = this.sim.world; // keep the Stats > Terrain tab in sync
     this.resize();
   }
 

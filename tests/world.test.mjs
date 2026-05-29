@@ -3,7 +3,7 @@ import { World } from '../src/world.js';
 import { Simulation } from '../src/simulation.js';
 import {
   SPECIES, SPECIES_INDEX, TERRAIN, TERRAIN_INFO, NUM_SPECIES,
-  classifyTerrain, MIN_HABITABLE,
+  classifyTerrain, coralHides, MIN_HABITABLE,
 } from '../src/config.js';
 
 describe('terrain', () => {
@@ -59,6 +59,20 @@ describe('habitat', () => {
     }
     ok(inWater > 0, 'qelp habitable in shallow water');
     ok(onLand > 0, 'qelp not habitable on rock');
+  });
+
+  test('coral reefs are generated on water cells', () => {
+    const w = new World();
+    const counts = w.terrainCounts();
+    ok(counts[TERRAIN.CORAL] > 0, `coral present (${counts[TERRAIN.CORAL]})`);
+  });
+
+  test('coral hides prey only from non-refuge predators', () => {
+    const ghoti = SPECIES[SPECIES_INDEX['ghoti']]; // coralRefuge: true
+    const daot = SPECIES[SPECIES_INDEX['daot']];   // predator, no refuge
+    ok(coralHides(daot, TERRAIN.CORAL), 'predator blocked by coral');
+    ok(!coralHides(ghoti, TERRAIN.CORAL), 'refuge fish not blocked');
+    ok(!coralHides(daot, TERRAIN.SHALLOW_WATER), 'open water never hides');
   });
 
   test('suitability is 0 outside the world', () => {

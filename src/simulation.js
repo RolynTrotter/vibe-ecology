@@ -1,7 +1,7 @@
 // ===========================================================================
 //  Simulation — one tick of ecosystem logic over the EntityStore.
 // ===========================================================================
-import { SPECIES, CONFIG, MAX_INTERACTION_RADIUS, MIN_HABITABLE } from './config.js';
+import { SPECIES, CONFIG, MAX_INTERACTION_RADIUS, MIN_HABITABLE, coralHides } from './config.js';
 import { World, makeRng } from './world.js';
 import { EntityStore } from './entities.js';
 import { SpatialGrid } from './spatial.js';
@@ -46,6 +46,7 @@ export class Simulation {
     for (let tries = 0; tries < 60; tries++) {
       const x = this.rand() * w.width;
       const y = this.rand() * w.height;
+      if (sp.kind === 'animal' && coralHides(sp, w.terrainAt(x, y))) continue;
       const suit = w.suitability(x, y, sp);
       if (suit >= MIN_HABITABLE) {
         if (this.rand() < suit) return [x, y];
@@ -172,7 +173,7 @@ export class Simulation {
 
     // 1) Flee the nearest predator.
     if (sp.fleeFactor > 0 && sp.predatorMask) {
-      const pred = this._findNearest(px, py, sp.sense, sp.predatorMask, true);
+      const pred = this._findNearest(px, py, sp.sense, sp.predatorMask, null);
       if (pred >= 0) {
         let dx = px - s.x[pred], dy = py - s.y[pred];
         const d = Math.hypot(dx, dy) || 1;
@@ -183,7 +184,8 @@ export class Simulation {
 
     // 2) Hungry? Seek the nearest edible thing, and eat it if close.
     if (!acted && s.energy[i] < sp.maxEnergy * sp.hungerAt && sp.dietMask) {
-      const food = this._findNearest(px, py, sp.sense, sp.dietMask, false);
+      // Pass `sp` so predators can't target prey hiding in coral.
+      const food = this._findNearest(px, py, sp.sense, sp.dietMask, sp);
       if (food >= 0) {
         const dx = s.x[food] - px, dy = s.y[food] - py;
         const d = Math.hypot(dx, dy);
@@ -227,7 +229,9 @@ export class Simulation {
     const suitHere = w.suitability(sx, sy, sp);
     const step = sp.speed * (MIN_SPEED_FACTOR + (1 - MIN_SPEED_FACTOR) * suitHere);
 
-    const ok = (x, y) => w.suitability(x, y, sp) > 0;
+    // Can't step onto uninhabitable ground, nor into coral if not a refuge user.
+    const ok = (x, y) =>
+      w.suitability(x, y, sp) > 0 && !coralHides(sp, w.terrainAt(x, y));
 
     let nx = sx + ux * step, ny = sy + uy * step;
     if (!ok(nx, ny)) {
@@ -276,7 +280,8 @@ export class Simulation {
     const dist = sp.size + 1 + this.rand() * 2;
     let nx = s.x[i] + Math.cos(ang) * dist;
     let ny = s.y[i] + Math.sin(ang) * dist;
-    if (this.world.suitability(nx, ny, sp) < MIN_HABITABLE) { nx = s.x[i]; ny = s.y[i]; }
+    if (this.world.suitability(nx, ny, sp) < MIN_HABITABLE ||
+        coralHides(sp, this.world.terrainAt(nx, ny))) { nx = s.x[i]; ny = s.y[i]; }
     const child = s.spawn(sp.index, nx, ny, sp.reproCost,
       Math.cos(ang), Math.sin(ang));
     if (child >= 0) {
@@ -286,9 +291,10 @@ export class Simulation {
   }
 
   // Nearest entity whose species bit is set in `mask`, within `radius`.
-  // `avoidSelfSpecies` is unused flag kept for clarity of intent.
-  _findNearest(px, py, radius, mask, _flee) {
-    const s = this.store, g = this.grid;
+  // If `searcher` is given, candidates hidden from it by coral are skipped (so
+  // predators can't target prey sheltering on a reef).
+  _findNearest(px, py, radius, mask, searcher) {
+    const s = this.store, g = this.grid, w = this.world;
     const r2 = radius * radius;
     let best = -1, bestD = r2 + 1;
     const r = Math.max(1, Math.ceil(radius / g.cellSize));
@@ -304,7 +310,10 @@ export class Simulation {
           if (!(mask & (1 << s.species[j]))) continue;
           const dx = s.x[j] - px, dy = s.y[j] - py;
           const d2 = dx * dx + dy * dy;
-          if (d2 < bestD && d2 <= r2) { bestD = d2; best = j; }
+          if (d2 < bestD && d2 <= r2) {
+            if (searcher && coralHides(searcher, w.terrainAt(s.x[j], s.y[j]))) continue;
+            bestD = d2; best = j;
+          }
         }
       }
     }

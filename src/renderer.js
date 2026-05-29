@@ -2,7 +2,7 @@
 //  Renderer — draws terrain (pre-rendered once) and culled entities each
 //  frame onto the main canvas, plus the minimap with a viewport box.
 // ===========================================================================
-import { SPECIES, TERRAIN_INFO, NUM_SPECIES, classifyDither } from './config.js';
+import { SPECIES, TERRAIN, TERRAIN_INFO, NUM_SPECIES, classifyDither } from './config.js';
 
 // 4x4 Bayer ordered-dither matrix, normalized to (0,1).
 const BAYER4 = [
@@ -38,9 +38,15 @@ export class Renderer {
     for (let y = 0; y < w.height; y++) {
       for (let x = 0; x < w.width; x++) {
         const i = w.idx(x, y);
-        const [primary, secondary, mix] = classifyDither(elev[i], moist[i], rock[i]);
-        const useSecondary = mix > 0 && BAYER4[(y & 3) * 4 + (x & 3)] < mix;
-        const c = palette[useSecondary ? secondary : primary];
+        const bayer = BAYER4[(y & 3) * 4 + (x & 3)];
+        let c;
+        if (w.terrain[i] === TERRAIN.CORAL) {
+          // Stipple coral over shallow water for a reef texture.
+          c = palette[bayer < 0.55 ? TERRAIN.CORAL : TERRAIN.SHALLOW_WATER];
+        } else {
+          const [primary, secondary, mix] = classifyDither(elev[i], moist[i], rock[i]);
+          c = palette[mix > 0 && bayer < mix ? secondary : primary];
+        }
         const o = i * 4;
         data[o] = c.r; data[o + 1] = c.g; data[o + 2] = c.b; data[o + 3] = 255;
       }
