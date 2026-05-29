@@ -78,11 +78,12 @@ Client-side JS for the live loop; Python is reserved for tooling/balancing.
 ```
 index.html / style.css      shell + mobile-first HUD
 src/
-  config.js                 ALL tunables: terrain, species, world, sim
-  world.js                  terrain grid + procedural map (value noise)
+  config.js                 ALL tunables: terrain, species, habitat, sim
+  world.js                  continuous fields + derived types + suitability
   entities.js               Structure-of-Arrays entity store + free list
   spatial.js                uniform-grid spatial index (counting sort)
   simulation.js             one tick of ecology (forage/eat/flee/reproduce)
+  harvest.js                per-species harvesting + resource tally
   camera.js                 world<->screen, pan/zoom, clamping
   input.js                  touch + mouse gestures
   renderer.js               terrain blit + culled, batched entity draw
@@ -91,6 +92,7 @@ src/
   ui.js                     HUD + controls
   main.js                   fixed-timestep loop, wiring
 sw.js                       offline cache (PWA)
+tests/                      unit tests + tiny harness (npm test)
 tools/
   serve.py                  local/LAN dev server
   smoke_test.mjs            headless correctness check
@@ -119,11 +121,21 @@ node tools/trace.mjs 20000    # prints the population trajectory
 ## Balancing
 
 Predator/prey systems naturally oscillate, and naïve parameters diverge into
-extinction. The key stabilizer here is **density-dependent reproduction**: an
-organism won't reproduce if too many of its own species are already nearby
-(`crowdRadius` / `crowdLimit` in `config.js`), which imposes a local carrying
-capacity and damps the boom/bust cycle. All the knobs live in `config.js` and
-are commented — tweak and re-run `trace.mjs` to see the effect.
+extinction. Three stabilizers keep this web alive over long runs:
+
+- **Density-dependent reproduction** — an organism won't reproduce if too many
+  of its own species are nearby (`crowdRadius` / `crowdLimit`), imposing a
+  local carrying capacity that damps boom/bust.
+- **Senescence** — animals with a `lifespan` die off with rising probability
+  past it. This caps long-lived predators that would otherwise slowly ratchet
+  up and grind their prey to extinction.
+- **Food-web balance** — a species eaten by several others (e.g. Naze, grazed
+  by Latt, Unclet, and Eagul) needs proportionally hardier regrowth, and an
+  unpredated herbivore will sit at carrying capacity overgrazing everything, so
+  it wants a predator. Watch for these gaps when adding species.
+
+All the knobs live in `config.js` and are commented — tweak and re-run
+`node tools/trace.mjs 12000` to see the effect on the whole web.
 
 ## Roadmap
 
