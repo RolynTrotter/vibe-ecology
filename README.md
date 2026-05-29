@@ -2,24 +2,43 @@
 
 A cute, top-down ecosystem simulator — loosely inspired by *Gungan Frontier*.
 You're seeding life on a fresh world for an alien civilization (the **Wexles**).
-For now it's the **ecosystem sandbox**: terrain, organisms, a living food web,
-graphs, and an ecosystem-health score. The Wexle colony/harvest layer comes
-later.
+It's the **ecosystem sandbox**: terrain, organisms, a living food web, graphs,
+an ecosystem-health score, and harvesting for the Wexles. The colony that
+consumes those harvests is still to come.
 
-## The world (first slice)
+## The world
 
-Two terrains and a five-species food web:
+Terrain is generated as continuous **fields** (elevation, moisture, rockiness)
+from which six discrete types are derived for display — **deep water, shallow
+water, sand, loam, mud, rock** — with dithered (stippled) edges between them.
+Each species' habitat is a set of **tolerance bands** over those fields:
+suitability gates where it can live and reproduce, and scales animal movement
+speed (an animal slows as it strays off its preferred ground).
+
+The food web:
 
 | Organism | Kind | Lives in | Eats |
 |----------|------|----------|------|
-| **Qelp** (kelp) | plant | shallow water | — (photosynthesis) |
-| **Naze** (corn) | plant | dirt | — (photosynthesis) |
+| **Qelp** (kelp) | plant | shallow water | — |
+| **Qorl** (coral) | plant | deep water | — |
+| **Naze** (corn) | plant | loam | — |
+| **Cacta** (cactus) | plant | sand (dry) | — |
+| **Muss** (lichen) | plant | rock (ground cover) | — |
+| **Mmmapple** (tree) | plant | loam (long-range seeds) | — |
 | **Ghoti** (fish) | animal | shallow water | Qelp |
-| **Latt** (rat) | animal | dirt | Naze |
-| **Daot** (toad) | animal | dirt + water (amphibious) | Ghoti, Latt |
+| **Latt** (rat) | animal | loam | Naze |
+| **Unclet** (goat) | animal | all land (generalist) | Naze, Cacta, Muss, Mmmapple |
+| **Daot** (toad) | animal | water + land (amphibious) | Ghoti, Latt |
+| **Eagul** (bird) | animal | everywhere (flies) | Ghoti, Naze |
+| **Qraken** (squid) | animal | water (apex) | Ghoti, Daot |
 
 Every organism is an **individual agent** that wanders, gets hungry, forages,
 flees predators, and reproduces.
+
+Some flavor mechanics are intentionally **deferred** (tracked in issues):
+Eagul nesting in Mmmapple trees, Qraken's inland tentacle reach, treating Qorl
+reefs / forests as terrain features, and Muss rendering as a solid ground
+texture.
 
 ## Running it
 
@@ -108,7 +127,8 @@ are commented — tweak and re-run `trace.mjs` to see the effect.
 
 ## Roadmap
 
-- More terrains (sand, mud, rock, deep water) and more species/layers.
+- Deferred flavor mechanics: Eagul nesting, Qraken inland reach, reef/forest
+  terrain features, ground-cover textures.
 - Symbiotic relationships.
-- The **Wexle colony**: harvest sliders per species, city growth, scoring that
-  blends ecosystem health with colony size.
+- The **Wexle colony**: city growth that consumes harvested resources, and a
+  combined score blending ecosystem health with colony size.
