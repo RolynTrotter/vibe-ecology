@@ -23,10 +23,12 @@ export class Simulation {
     this._bestDist = 0;
     this._px = 0; this._py = 0;
 
+    // Bound field (not a prototype method) so it can be passed around detached,
+    // e.g. as the RNG source for the harvest controller.
+    this.rand = () => this.rng();
+
     this.seedPopulations();
   }
-
-  rand() { return this.rng(); }
 
   // Pick a random world position whose terrain matches `terrainMask`.
   randomCellFor(terrainMask) {

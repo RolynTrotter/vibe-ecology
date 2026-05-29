@@ -122,3 +122,81 @@ html, body {
 }
 #controls button:active { transform: scale(0.94); }
 #controls button.active { border-color: #6fdb8f; color: #6fdb8f; }
+
+/* ---- Harvesting menu ---- */
+#harvest-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 16px;
+}
+#harvest-overlay[hidden] { display: none; }
+#harvest-menu {
+  position: relative;
+  width: min(420px, 100%);
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 14px 16px;
+}
+.hm-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+#hm-close {
+  width: 32px; height: 32px;
+  border: 1px solid var(--panel-border);
+  background: transparent;
+  color: var(--text);
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+}
+.hm-resources {
+  display: flex;
+  gap: 14px;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 12px;
+  color: var(--muted);
+}
+.hm-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0;
+  border-top: 1px solid var(--panel-border);
+}
+.hm-label { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.hm-seg {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.hm-opt {
+  padding: 9px 4px;
+  font-size: 12px;
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.hm-opt:active { transform: scale(0.96); }
+.hm-opt.active {
+  border-color: #6fdb8f;
+  background: rgba(111, 219, 143, 0.16);
+  color: #6fdb8f;
+}
+.hm-hint {
+  margin: 12px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.4;
+}

@@ -9,6 +9,7 @@ import { Camera } from './camera.js';
 import { Renderer } from './renderer.js';
 import { attachInput } from './input.js';
 import { PopulationGraph } from './graphs.js';
+import { HarvestController } from './harvest.js';
 import { UI } from './ui.js';
 
 const SPEEDS = [1, 2, 4, 8];
@@ -23,6 +24,7 @@ class Game {
     this.camera = new Camera(this.sim.world);
     this.renderer = new Renderer(this.canvas, this.minimap, this.sim.world);
     this.graph = new PopulationGraph(this.graphCanvas);
+    this.harvest = new HarvestController();
     attachInput(this.canvas, this.camera, this.minimap);
 
     this.running = true;
@@ -47,7 +49,7 @@ class Game {
         this.graphCanvas.style.display = this.graphShown ? 'block' : 'none';
         return this.graphShown;
       },
-    });
+    }, this.harvest);
 
     this.resize();
     this.camera.fitToWidth(0.6);
@@ -86,6 +88,7 @@ class Game {
       let budget = 12; // cap catch-up steps so we never spiral on a slow frame
       while (this.accumulator >= tickDt && budget-- > 0) {
         this.sim.step();
+        this.harvest.step(this.sim, tickDt);
         this.accumulator -= tickDt;
         if (++this._sinceSample >= CONFIG.graph.sampleEvery) {
           this._sinceSample = 0;
