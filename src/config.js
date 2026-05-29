@@ -113,9 +113,9 @@ export const SPECIES = [
     color: '#d4c24a',
     habitat: { elevation: [0.42, 0.78], moisture: [0.34, 0.62], rockiness: [0, 0.55] },
     size: 0.7,
-    growth: 0.4, maxEnergy: 24, matureAge: 70,
-    reproEnergy: 15, reproCost: 9, reproCooldown: 80,
-    spreadRadius: 4, crowdLimit: 5, biteEnergy: 8,
+    growth: 0.55, maxEnergy: 24, matureAge: 70,                  // hardy regrowth:
+    reproEnergy: 14, reproCost: 8, reproCooldown: 60,            // Naze feeds three
+    spreadRadius: 5, crowdLimit: 8, biteEnergy: 8,               // grazers
     wexle: { food: 4, material: 1, value: 2 },
   },
   {
@@ -199,7 +199,7 @@ export const SPECIES = [
     id: 'daot', name: 'Daot', kind: 'animal',
     color: '#9b78d4',
     habitat: { elevation: [0.30, 0.70] },                   // amphibious
-    diet: ['ghoti', 'latt'],
+    diet: ['ghoti', 'latt', 'unclet'],                      // generalist predator
     size: 1.3, speed: 0.15, sense: 9,
     metabolism: 0.085, maxEnergy: 80, hungerAt: 0.8, eatGain: 0.55,
     matureAge: 350, reproEnergy: 60, reproCost: 36, reproCooldown: 480,
@@ -246,7 +246,7 @@ export const CONFIG = {
   },
 
   initial: {
-    qelp: 1400, naze: 1400, cacta: 500, muss: 700, mmmapple: 180, qorl: 450,
+    qelp: 1400, naze: 1800, cacta: 500, muss: 700, mmmapple: 180, qorl: 450,
     ghoti: 300, latt: 220, unclet: 120,
     daot: 22, eagul: 45, qraken: 8,
   },
