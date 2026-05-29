@@ -55,9 +55,26 @@ export class UI {
   // ---- Harvest menu -----------------------------------------------------
   buildHarvestMenu() {
     this.harvestOverlay = document.getElementById('harvest-overlay');
-    const rows = document.getElementById('hm-rows');
-    this.levelButtons = {};
+    this.buildHarvestRows();
 
+    const panels = {
+      harvest: document.getElementById('harvest-panel'),
+      colony: document.getElementById('colony-panel'),
+    };
+    this.selectHarvestTab = this.makeTabs(
+      document.getElementById('harvest-tabs'),
+      [{ id: 'harvest', label: 'Harvest' }, { id: 'colony', label: 'Colony' }],
+      panels,
+      (id) => { this.harvestTab = id; if (id === 'colony') this.drawColony(); });
+    this.selectHarvestTab('harvest');
+  }
+
+  // (Re)build the per-species harvest level rows. Safe to call after the roster
+  // changes (dev species creation).
+  buildHarvestRows() {
+    const rows = document.getElementById('hm-rows');
+    rows.innerHTML = '';
+    this.levelButtons = {};
     SPECIES.forEach(sp => {
       const row = document.createElement('div');
       row.className = 'hm-row';
@@ -80,17 +97,12 @@ export class UI {
       row.append(label, seg);
       rows.appendChild(row);
     });
+  }
 
-    const panels = {
-      harvest: document.getElementById('harvest-panel'),
-      colony: document.getElementById('colony-panel'),
-    };
-    this.selectHarvestTab = this.makeTabs(
-      document.getElementById('harvest-tabs'),
-      [{ id: 'harvest', label: 'Harvest' }, { id: 'colony', label: 'Colony' }],
-      panels,
-      (id) => { this.harvestTab = id; if (id === 'colony') this.drawColony(); });
-    this.selectHarvestTab('harvest');
+  // Rebuild every per-species DOM list after the roster changes.
+  rebuildSpecies() {
+    this.buildHarvestRows();
+    this.buildSpeciesRows();
   }
 
   setLevel(speciesId, level) {
@@ -126,17 +138,7 @@ export class UI {
 
     // Species panel
     this.speciesPanel = document.createElement('div');
-    this.countEls = SPECIES.map(sp => {
-      const row = document.createElement('div');
-      row.className = 'sp-row';
-      row.innerHTML = `<span class="dot" style="background:${sp.color}"></span>` +
-        `<span class="sp-name">${sp.name}</span>`;
-      const count = document.createElement('span');
-      count.className = 'sp-count'; count.textContent = '0';
-      row.appendChild(count);
-      this.speciesPanel.appendChild(row);
-      return count;
-    });
+    this.buildSpeciesRows();
 
     // Over-time panel (population graph canvas; PopulationGraph is wired by main)
     this.overtimePanel = document.createElement('div');
@@ -177,6 +179,21 @@ export class UI {
         if (id === 'foodweb') this.drawFoodWeb();
       });
     this.selectStatsTab('species');
+  }
+
+  buildSpeciesRows() {
+    this.speciesPanel.innerHTML = '';
+    this.countEls = SPECIES.map(sp => {
+      const row = document.createElement('div');
+      row.className = 'sp-row';
+      row.innerHTML = `<span class="dot" style="background:${sp.color}"></span>` +
+        `<span class="sp-name">${sp.name}</span>`;
+      const count = document.createElement('span');
+      count.className = 'sp-count'; count.textContent = '0';
+      row.appendChild(count);
+      this.speciesPanel.appendChild(row);
+      return count;
+    });
   }
 
   renderTerrainPanel() {

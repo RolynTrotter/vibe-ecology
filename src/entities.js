@@ -4,7 +4,7 @@
 //  A free list recycles dead slots so spawning/dying stays O(1) and we never
 //  reallocate during the sim.
 // ===========================================================================
-import { NUM_SPECIES } from './config.js';
+import { SPECIES } from './config.js';
 
 export class EntityStore {
   constructor(capacity) {
@@ -22,7 +22,7 @@ export class EntityStore {
     this.highWater = 0;        // one past the highest slot ever used
     this.living = 0;           // current live count
     this.freeList = [];        // recycled dead slot indices
-    this.counts = new Int32Array(NUM_SPECIES); // live count per species
+    this.counts = new Int32Array(SPECIES.length); // live count per species
   }
 
   spawn(speciesIdx, x, y, energy, hx = 0, hy = 0) {

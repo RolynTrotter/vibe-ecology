@@ -57,24 +57,29 @@ export class Simulation {
   }
 
   seedPopulations() {
-    for (const sp of SPECIES) {
-      const n = CONFIG.initial[sp.id] || 0;
-      for (let k = 0; k < n; k++) {
-        const pos = this.randomCellFor(sp);
-        if (!pos) continue;
-        const energy = sp.kind === 'plant'
-          ? sp.maxEnergy * (0.3 + 0.7 * this.rand())
-          : sp.maxEnergy * (0.5 + 0.4 * this.rand());
-        const i = this.store.spawn(sp.index, pos[0], pos[1], energy);
-        if (i < 0) break;
-        // Random initial heading + a head start on age so they're not all
-        // born simultaneously.
-        const a = this.rand() * Math.PI * 2;
-        this.store.hx[i] = Math.cos(a);
-        this.store.hy[i] = Math.sin(a);
-        this.store.age[i] = this.rand() * sp.matureAge;
-      }
+    for (const sp of SPECIES) this.spawnSpecies(sp, CONFIG.initial[sp.id] || 0);
+  }
+
+  // Spawn up to `n` individuals of a species into habitable cells. Used both
+  // for initial seeding and for the dev "spawn more" injector. Returns the
+  // count actually spawned.
+  spawnSpecies(sp, n) {
+    let spawned = 0;
+    for (let k = 0; k < n; k++) {
+      const pos = this.randomCellFor(sp);
+      if (!pos) continue;
+      const energy = sp.kind === 'plant'
+        ? sp.maxEnergy * (0.3 + 0.7 * this.rand())
+        : sp.maxEnergy * (0.5 + 0.4 * this.rand());
+      const i = this.store.spawn(sp.index, pos[0], pos[1], energy);
+      if (i < 0) break; // at capacity
+      const a = this.rand() * Math.PI * 2;
+      this.store.hx[i] = Math.cos(a);
+      this.store.hy[i] = Math.sin(a);
+      this.store.age[i] = this.rand() * sp.matureAge;
+      spawned++;
     }
+    return spawned;
   }
 
   step() {

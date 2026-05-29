@@ -3,12 +3,12 @@
 //  balanced; punishes extinctions and runaway/collapsing populations.
 //  Range 0..100. (Colony/economy scoring will layer on later.)
 // ===========================================================================
-import { SPECIES, NUM_SPECIES, CONFIG } from './config.js';
+import { SPECIES, CONFIG } from './config.js';
 
 export function ecosystemHealth(counts) {
   let alive = 0;
   let balance = 0;
-  for (let sp = 0; sp < NUM_SPECIES; sp++) {
+  for (let sp = 0; sp < SPECIES.length; sp++) {
     const c = counts[sp];
     const base = CONFIG.initial[SPECIES[sp].id] || 1;
     if (c > 0) alive++;
@@ -23,8 +23,8 @@ export function ecosystemHealth(counts) {
     }
     balance += band;
   }
-  const presence = alive / NUM_SPECIES;       // fraction of species surviving
-  balance /= NUM_SPECIES;
+  const presence = alive / SPECIES.length;       // fraction of species surviving
+  balance /= SPECIES.length;
   // Presence dominates — an extinction should hurt a lot.
   const score = (presence * 0.6 + balance * 0.4) * 100;
   return { score: Math.round(score), alive, presence, balance };

@@ -2,7 +2,7 @@
 //  Renderer — draws terrain (pre-rendered once) and culled entities each
 //  frame onto the main canvas, plus the minimap with a viewport box.
 // ===========================================================================
-import { SPECIES, TERRAIN, TERRAIN_INFO, NUM_SPECIES, classifyDither } from './config.js';
+import { SPECIES, TERRAIN, TERRAIN_INFO, classifyDither } from './config.js';
 
 // 4x4 Bayer ordered-dither matrix, normalized to (0,1).
 const BAYER4 = [
@@ -102,7 +102,7 @@ export class Renderer {
     const n = s.highWater;
 
     // Batch by species so we set fillStyle once per species (big win).
-    for (let sp = 0; sp < NUM_SPECIES; sp++) {
+    for (let sp = 0; sp < SPECIES.length; sp++) {
       if (s.counts[sp] === 0) continue;
       const def = SPECIES[sp];
       ctx.fillStyle = def.color;

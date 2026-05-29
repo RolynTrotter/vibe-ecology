@@ -3,7 +3,7 @@
 //  Sim ticks run on a fixed timestep (decoupled from render) so a given
 //  speed setting behaves the same regardless of frame rate.
 // ===========================================================================
-import { CONFIG } from './config.js';
+import { CONFIG, SPECIES, createSpecies } from './config.js';
 import { Simulation } from './simulation.js';
 import { Camera } from './camera.js';
 import { Renderer } from './renderer.js';
@@ -12,6 +12,7 @@ import { PopulationGraph } from './graphs.js';
 import { HarvestController } from './harvest.js';
 import { Colony } from './colony.js';
 import { UI } from './ui.js';
+import { DevPanel } from './dev.js';
 
 const SPEEDS = [1, 2, 4, 8];
 
@@ -49,6 +50,7 @@ class Game {
     // The population graph lives inside the Stats > Over time tab; the UI owns
     // the canvas, we own the rolling history.
     this.graph = new PopulationGraph(this.ui.graphCanvas);
+    this.dev = new DevPanel(this);
 
     this.resize();
     this.camera.fitToWidth(0.6);
@@ -65,6 +67,24 @@ class Game {
     this.ui.colony = this.colony;
     this.ui.world = this.sim.world; // keep the Stats > Terrain tab in sync
     this.resize();
+  }
+
+  // ---- dev tools hooks --------------------------------------------------
+  // Inject `n` more individuals of a species into the live world.
+  spawnLive(idx, n) { this.sim.spawnSpecies(SPECIES[idx], n); }
+
+  // Rebuild the world with the current CONFIG (e.g. after a seed change).
+  regenerate() { this.reset(); }
+
+  // Add a new species, then restart the world so it seeds in and every
+  // per-species structure is rebuilt at the new roster size.
+  createAndApply(def) {
+    createSpecies(def);
+    // Harvest arrays are sized to the roster, so rebuild it at the new size.
+    this.harvest = new HarvestController();
+    this.ui.harvest = this.harvest;
+    this.reset();             // recreates sim/renderer/graph/colony, re-seeds
+    this.ui.rebuildSpecies(); // rebuild per-species DOM at the new roster size
   }
 
   resize() {

@@ -1,7 +1,7 @@
 // ===========================================================================
 //  Graphs — rolling population history + a small multi-line chart.
 // ===========================================================================
-import { SPECIES, NUM_SPECIES, CONFIG } from './config.js';
+import { SPECIES, CONFIG } from './config.js';
 
 export class PopulationGraph {
   constructor(canvas) {
@@ -9,14 +9,14 @@ export class PopulationGraph {
     this.ctx = canvas.getContext('2d');
     this.len = CONFIG.graph.historyLength;
     // One ring buffer per species.
-    this.history = Array.from({ length: NUM_SPECIES },
+    this.history = Array.from({ length: SPECIES.length },
       () => new Float32Array(this.len));
     this.head = 0;
     this.filled = 0;
   }
 
   sample(counts) {
-    for (let sp = 0; sp < NUM_SPECIES; sp++) {
+    for (let sp = 0; sp < SPECIES.length; sp++) {
       this.history[sp][this.head] = counts[sp];
     }
     this.head = (this.head + 1) % this.len;
@@ -42,7 +42,7 @@ export class PopulationGraph {
     // Max across all series for vertical scaling (log-ish via sqrt to keep
     // both rare predators and abundant plants legible).
     let max = 1;
-    for (let sp = 0; sp < NUM_SPECIES; sp++) {
+    for (let sp = 0; sp < SPECIES.length; sp++) {
       const buf = this.history[sp];
       for (let k = 0; k < this.filled; k++) if (buf[k] > max) max = buf[k];
     }
@@ -51,7 +51,7 @@ export class PopulationGraph {
     const step = (w - 4) / (n - 1);
     const start = (this.head - this.filled + this.len) % this.len;
 
-    for (let sp = 0; sp < NUM_SPECIES; sp++) {
+    for (let sp = 0; sp < SPECIES.length; sp++) {
       const buf = this.history[sp];
       ctx.strokeStyle = SPECIES[sp].color;
       ctx.lineWidth = 1.4;

@@ -8,7 +8,7 @@
 //  Until the colony (#10) exists, `colonySize` is a stub that grows from the
 //  value harvested, which keeps the "as needed" feedback loop self-consistent.
 // ===========================================================================
-import { SPECIES, SPECIES_INDEX, NUM_SPECIES } from './config.js';
+import { SPECIES, SPECIES_INDEX } from './config.js';
 
 export const HARVEST_LEVELS = ['none', 'some', 'alot', 'asneeded'];
 export const HARVEST_LABELS = {
@@ -26,8 +26,8 @@ export class HarvestController {
     this.levels = {};
     for (const sp of SPECIES) this.levels[sp.id] = 'none';
     this.resources = { food: 0, material: 0, value: 0 };
-    this.harvestedTotal = new Int32Array(NUM_SPECIES);
-    this._accum = new Float32Array(NUM_SPECIES); // fractional quota carryover
+    this.harvestedTotal = new Int32Array(SPECIES.length);
+    this._accum = new Float32Array(SPECIES.length); // fractional quota carryover
     this.colonySize = 0;                         // driven by the Colony (#10)
     this._scratch = [];                          // reused index buffer
   }

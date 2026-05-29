@@ -257,35 +257,78 @@ export const CONFIG = {
   },
 };
 
-// --- Derived lookups (built once) ---------------------------------------
+// --- Derived lookups -----------------------------------------------------
+// Bitmasks cap at 31 species (we use `1 << index`). Plenty for this game.
+export const MAX_SPECIES = 31;
 export const SPECIES_INDEX = {};
-SPECIES.forEach((s, i) => { SPECIES_INDEX[s.id] = i; });
 
-// Precompute per-species: index, diet bitmask, habitat band list, predators.
-SPECIES.forEach((s, i) => {
-  s.index = i;
-  s.dietMask = 0;
-  (s.diet || []).forEach(id => { s.dietMask |= (1 << SPECIES_INDEX[id]); });
-  // Compact band list: [{ field, lo, hi }] for the fields this species cares about.
-  s.bands = [];
-  const h = s.habitat || {};
-  if (h.elevation) s.bands.push({ field: FIELD.ELEVATION, lo: h.elevation[0], hi: h.elevation[1] });
-  if (h.moisture) s.bands.push({ field: FIELD.MOISTURE, lo: h.moisture[0], hi: h.moisture[1] });
-  if (h.rockiness) s.bands.push({ field: FIELD.ROCKINESS, lo: h.rockiness[0], hi: h.rockiness[1] });
-});
-SPECIES.forEach((s, i) => {
-  s.predatorMask = 0;
-  SPECIES.forEach((other, j) => {
-    if (other.dietMask & (1 << i)) s.predatorMask |= (1 << j);
+// (Re)compute everything derived from the SPECIES table: indices, diet/predator
+// bitmasks, and habitat band lists. Safe to call again after editing or adding
+// a species (e.g. from the dev tools).
+export function rebuildDerivedSpecies() {
+  for (const k of Object.keys(SPECIES_INDEX)) delete SPECIES_INDEX[k];
+  SPECIES.forEach((s, i) => { SPECIES_INDEX[s.id] = i; });
+
+  SPECIES.forEach((s, i) => {
+    s.index = i;
+    s.dietMask = 0;
+    (s.diet || []).forEach(id => {
+      if (id in SPECIES_INDEX) s.dietMask |= (1 << SPECIES_INDEX[id]);
+    });
+    s.bands = [];
+    const h = s.habitat || {};
+    if (h.elevation) s.bands.push({ field: FIELD.ELEVATION, lo: h.elevation[0], hi: h.elevation[1] });
+    if (h.moisture) s.bands.push({ field: FIELD.MOISTURE, lo: h.moisture[0], hi: h.moisture[1] });
+    if (h.rockiness) s.bands.push({ field: FIELD.ROCKINESS, lo: h.rockiness[0], hi: h.rockiness[1] });
   });
-});
+  SPECIES.forEach((s, i) => {
+    s.predatorMask = 0;
+    SPECIES.forEach((other, j) => {
+      if (other.dietMask & (1 << i)) s.predatorMask |= (1 << j);
+    });
+  });
+}
+rebuildDerivedSpecies();
 
-export const NUM_SPECIES = SPECIES.length;
+// Append a new species (dev tools). `def` is a partial species object; sane
+// defaults fill the rest. Returns the created species (or throws if full / dup).
+export function createSpecies(def) {
+  if (SPECIES.length >= MAX_SPECIES) throw new Error('species limit reached');
+  const id = def.id || def.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (id in SPECIES_INDEX) throw new Error(`species "${id}" already exists`);
+  const isPlant = def.kind === 'plant';
+  const base = isPlant
+    ? { growth: 0.4, maxEnergy: 22, matureAge: 70, reproEnergy: 14, reproCost: 9,
+        reproCooldown: 80, spreadRadius: 4, crowdLimit: 5, biteEnergy: 7 }
+    : { speed: 0.16, sense: 7, metabolism: 0.05, maxEnergy: 45, hungerAt: 0.7,
+        eatGain: 0.9, matureAge: 150, reproEnergy: 28, reproCost: 16,
+        reproCooldown: 200, crowdRadius: 6, crowdLimit: 4, fleeFactor: 0.6 };
+  const sp = {
+    ...base,
+    ...def,
+    id,
+    name: def.name || id,
+    kind: def.kind || 'animal',
+    color: def.color || '#cccccc',
+    habitat: def.habitat || (isPlant ? { elevation: [0.30, 0.42] } : { elevation: [0.42, 0.98] }),
+    size: def.size ?? (isPlant ? 0.7 : 1.0),
+    diet: def.diet || [],
+    wexle: def.wexle || { food: 3, material: 3, value: 3 },
+  };
+  delete sp.initial; // a dev-form field, not a species attribute
+  SPECIES.push(sp);
+  CONFIG.initial[id] = def.initial ?? (isPlant ? 400 : 80);
+  rebuildDerivedSpecies();
+  return sp;
+}
 
 // Largest radius any organism cares about — sizes the spatial grid buckets.
 export const MAX_INTERACTION_RADIUS = Math.max(
   ...SPECIES.map(s => Math.max(s.sense || 0, s.spreadRadius || 0, 2))
 );
+
+// Kept for any external reference; prefer SPECIES.length for live counts.
+export const NUM_SPECIES = SPECIES.length;
 
 // Minimum suitability for an organism to occupy a cell at all (below this the
 // terrain is effectively impassable / uninhabitable for it).
