@@ -2,7 +2,12 @@
 //  Renderer — draws terrain (pre-rendered once) and culled entities each
 //  frame onto the main canvas, plus the minimap with a viewport box.
 // ===========================================================================
-import { SPECIES, TERRAIN_INFO, NUM_SPECIES } from './config.js';
+import { SPECIES, TERRAIN_INFO, NUM_SPECIES, classifyDither } from './config.js';
+
+// 4x4 Bayer ordered-dither matrix, normalized to (0,1).
+const BAYER4 = [
+  0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5,
+].map(v => (v + 0.5) / 16);
 
 export class Renderer {
   constructor(canvas, minimap, world) {
@@ -19,7 +24,8 @@ export class Renderer {
     this.buildMinimapLayer();
   }
 
-  // Offscreen canvas: one pixel per grid cell. Cheap to draw scaled.
+  // Offscreen canvas: one pixel per grid cell, baked once. Type boundaries are
+  // ordered-dithered (stippled) toward the neighbouring type for retro edges.
   buildTerrainLayer() {
     const w = this.world;
     const off = document.createElement('canvas');
@@ -28,10 +34,16 @@ export class Renderer {
     const img = octx.createImageData(w.width, w.height);
     const data = img.data;
     const palette = TERRAIN_INFO.map(t => hexToRgb(t.color));
-    for (let i = 0; i < w.terrain.length; i++) {
-      const c = palette[w.terrain[i]];
-      const o = i * 4;
-      data[o] = c.r; data[o + 1] = c.g; data[o + 2] = c.b; data[o + 3] = 255;
+    const [elev, moist, rock] = w.fields;
+    for (let y = 0; y < w.height; y++) {
+      for (let x = 0; x < w.width; x++) {
+        const i = w.idx(x, y);
+        const [primary, secondary, mix] = classifyDither(elev[i], moist[i], rock[i]);
+        const useSecondary = mix > 0 && BAYER4[(y & 3) * 4 + (x & 3)] < mix;
+        const c = palette[useSecondary ? secondary : primary];
+        const o = i * 4;
+        data[o] = c.r; data[o + 1] = c.g; data[o + 2] = c.b; data[o + 3] = 255;
+      }
     }
     octx.putImageData(img, 0, 0);
     this.terrainLayer = off;

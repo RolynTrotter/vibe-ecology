@@ -1,10 +1,14 @@
 // ===========================================================================
 //  Simulation — one tick of ecosystem logic over the EntityStore.
 // ===========================================================================
-import { SPECIES, CONFIG, MAX_INTERACTION_RADIUS } from './config.js';
+import { SPECIES, CONFIG, MAX_INTERACTION_RADIUS, MIN_HABITABLE } from './config.js';
 import { World, makeRng } from './world.js';
 import { EntityStore } from './entities.js';
 import { SpatialGrid } from './spatial.js';
+
+// Animals never freeze completely on poor ground; speed floors at this
+// fraction of their max, scaling up to full speed in ideal habitat.
+const MIN_SPEED_FACTOR = 0.35;
 
 export class Simulation {
   constructor() {
@@ -30,23 +34,29 @@ export class Simulation {
     this.seedPopulations();
   }
 
-  // Pick a random world position whose terrain matches `terrainMask`.
-  randomCellFor(terrainMask) {
+  // Pick a random world position habitable for `sp`, biased toward the core of
+  // its habitat (accept with probability == suitability), with a fallback to
+  // any merely-habitable cell so rare niches still get seeded.
+  randomCellFor(sp) {
     const w = this.world;
-    for (let tries = 0; tries < 30; tries++) {
+    let fallback = null;
+    for (let tries = 0; tries < 60; tries++) {
       const x = this.rand() * w.width;
       const y = this.rand() * w.height;
-      const t = w.terrainAt(x, y);
-      if (t >= 0 && (terrainMask & (1 << t))) return [x, y];
+      const suit = w.suitability(x, y, sp);
+      if (suit >= MIN_HABITABLE) {
+        if (this.rand() < suit) return [x, y];
+        if (!fallback) fallback = [x, y];
+      }
     }
-    return null;
+    return fallback;
   }
 
   seedPopulations() {
     for (const sp of SPECIES) {
       const n = CONFIG.initial[sp.id] || 0;
       for (let k = 0; k < n; k++) {
-        const pos = this.randomCellFor(sp.terrainMask);
+        const pos = this.randomCellFor(sp);
         if (!pos) continue;
         const energy = sp.kind === 'plant'
           ? sp.maxEnergy * (0.3 + 0.7 * this.rand())
@@ -103,8 +113,7 @@ export class Simulation {
     const dist = 1 + this.rand() * sp.spreadRadius;
     const nx = s.x[i] + Math.cos(ang) * dist;
     const ny = s.y[i] + Math.sin(ang) * dist;
-    const t = this.world.terrainAt(nx, ny);
-    if (t < 0 || !(sp.terrainMask & (1 << t))) return;
+    if (this.world.suitability(nx, ny, sp) < MIN_HABITABLE) return;
 
     const child = s.spawn(myIdx, nx, ny, sp.reproCost);
     if (child >= 0) {
@@ -202,20 +211,20 @@ export class Simulation {
     }
   }
 
-  // Move with terrain constraint: if the step would land on forbidden
-  // terrain, bounce by trying axis-aligned slides, else reverse heading.
+  // Move with a habitat constraint: the step can't land on uninhabitable
+  // ground (suitability 0); if it would, bounce by trying axis-aligned slides,
+  // else reverse heading. Speed scales smoothly with how suitable the current
+  // ground is, so an animal slows as it strays off its preferred terrain.
   move(i, sp, dirX, dirY) {
     const s = this.store;
     const len = Math.hypot(dirX, dirY) || 1;
     let ux = dirX / len, uy = dirY / len;
     const sx = s.x[i], sy = s.y[i];
-    const step = sp.speed;
     const w = this.world;
+    const suitHere = w.suitability(sx, sy, sp);
+    const step = sp.speed * (MIN_SPEED_FACTOR + (1 - MIN_SPEED_FACTOR) * suitHere);
 
-    const ok = (x, y) => {
-      const t = w.terrainAt(x, y);
-      return t >= 0 && (sp.terrainMask & (1 << t));
-    };
+    const ok = (x, y) => w.suitability(x, y, sp) > 0;
 
     let nx = sx + ux * step, ny = sy + uy * step;
     if (!ok(nx, ny)) {
@@ -264,8 +273,7 @@ export class Simulation {
     const dist = sp.size + 1 + this.rand() * 2;
     let nx = s.x[i] + Math.cos(ang) * dist;
     let ny = s.y[i] + Math.sin(ang) * dist;
-    const t = this.world.terrainAt(nx, ny);
-    if (t < 0 || !(sp.terrainMask & (1 << t))) { nx = s.x[i]; ny = s.y[i]; }
+    if (this.world.suitability(nx, ny, sp) < MIN_HABITABLE) { nx = s.x[i]; ny = s.y[i]; }
     const child = s.spawn(sp.index, nx, ny, sp.reproCost,
       Math.cos(ang), Math.sin(ang));
     if (child >= 0) {
