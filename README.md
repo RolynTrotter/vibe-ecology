@@ -59,8 +59,18 @@ after first load via the service worker).
 - **One finger drag** — pan the camera.
 - **Pinch** — zoom (mouse wheel on desktop).
 - **Minimap** (top-right) — tap/drag to jump the camera.
-- Bottom-right buttons: **Dev tools** (🛠), **Statistics** (📊), **Wexles**
-  (🧺), **play/pause**, **speed** (1/2/4/8×), **regenerate world** (⟳).
+- **Bottom-left**: **play/pause** and **speed** (1/2/4/8×).
+- **Bottom-right**: **Map display** (🗺), **Statistics** (📊), **Wexles** (🧺),
+  **Dev tools** (🛠), **regenerate world** (⟳).
+
+### Map display (🗺)
+
+Terrain is rendered from procedural per-terrain **textures** (mottle + speckle,
+water ripples, rock fractures) with ordered-dithered blends at boundaries — all
+baked once to static layers. The Map menu switches what's drawn:
+- **View** — Terrain, or a color-ramped map of **Elevation / Moisture /
+  Rockiness** (the underlying fields).
+- **Show life** — Both / Plants / Animals / None (kind-level, not per species).
 
 ### Dev tools (🛠)
 
@@ -108,7 +118,8 @@ src/
   foodweb.js                trophic structure derived from diets
   camera.js                 world<->screen, pan/zoom, clamping
   input.js                  touch + mouse gestures
-  renderer.js               terrain blit + culled, batched entity draw
+  renderer.js               baked map layers + culled, batched entity draw
+  textures.js               procedural terrain texels + field color ramps
   graphs.js                 rolling population chart
   score.js                  ecosystem-health metric
   ui.js                     HUD + controls

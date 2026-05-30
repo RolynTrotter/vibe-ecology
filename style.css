@@ -94,16 +94,17 @@ html, body {
 }
 .chip { display: flex; align-items: center; gap: 4px; }
 
-/* ---- Controls (bottom-right) ---- */
-#controls {
+/* ---- Controls: sim (bottom-left) + menus (bottom-right) ---- */
+#sim-controls, #menu-controls {
   position: fixed;
   bottom: max(8px, env(safe-area-inset-bottom));
-  right: max(8px, env(safe-area-inset-right));
   display: flex;
   gap: 8px;
   z-index: 11;
 }
-#controls button {
+#sim-controls { left: max(8px, env(safe-area-inset-left)); }
+#menu-controls { right: max(8px, env(safe-area-inset-right)); }
+#sim-controls button, #menu-controls button {
   width: 48px; height: 48px;
   font-size: 20px;
   border: 1px solid var(--panel-border);
@@ -114,8 +115,10 @@ html, body {
   -webkit-backdrop-filter: blur(6px);
   cursor: pointer;
 }
-#controls button:active { transform: scale(0.94); }
-#controls button.active { border-color: #6fdb8f; color: #6fdb8f; }
+#sim-controls button:active, #menu-controls button:active { transform: scale(0.94); }
+#sim-controls button.active, #menu-controls button.active {
+  border-color: #6fdb8f; color: #6fdb8f;
+}
 
 /* ---- Harvesting menu ---- */
 #harvest-overlay {
@@ -195,8 +198,8 @@ html, body {
   line-height: 1.4;
 }
 
-/* ---- Stats / Dev menus (share overlay/panel styling with harvest) ---- */
-#stats-overlay, #dev-overlay {
+/* ---- Stats / Dev / Map menus (share overlay/panel styling with harvest) ---- */
+#stats-overlay, #dev-overlay, #map-overlay {
   position: fixed;
   inset: 0;
   z-index: 20;
@@ -206,13 +209,25 @@ html, body {
   background: rgba(0, 0, 0, 0.45);
   padding: 16px;
 }
-#stats-overlay[hidden], #dev-overlay[hidden] { display: none; }
-#stats-menu, #dev-menu {
+#stats-overlay[hidden], #dev-overlay[hidden], #map-overlay[hidden] { display: none; }
+#stats-menu, #dev-menu, #map-menu {
   position: relative;
   width: min(420px, 100%);
   max-height: 82vh;
   overflow-y: auto;
   padding: 14px 16px;
+}
+#map-menu h4 {
+  margin: 14px 0 8px;
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.hm-seg-wide {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
 }
 #dev-body h4 {
   margin: 14px 0 6px;

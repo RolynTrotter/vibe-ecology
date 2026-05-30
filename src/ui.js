@@ -22,6 +22,7 @@ export class UI {
     this.buildHarvestMenu();
     this.buildColonyPanel();
     this.buildStatsMenu();
+    this.buildMapMenu();
     this.wireControls();
 
     this.scoreEl = document.getElementById('score');
@@ -302,6 +303,45 @@ export class UI {
     this.drawColony();
   }
 
+  // ---- Map display menu -------------------------------------------------
+  buildMapMenu() {
+    this.mapOverlay = document.getElementById('map-overlay');
+    this.segGroup(document.getElementById('map-view'), [
+      { id: 'terrain', label: 'Terrain' },
+      { id: 'elevation', label: 'Elevation' },
+      { id: 'moisture', label: 'Moisture' },
+      { id: 'rockiness', label: 'Rockiness' },
+    ], 'terrain', (id) => this.handlers.onSetView(id));
+
+    const showMap = {
+      both: [true, true], plants: [true, false],
+      animals: [false, true], none: [false, false],
+    };
+    this.segGroup(document.getElementById('map-show'), [
+      { id: 'both', label: 'Both' },
+      { id: 'plants', label: 'Plants' },
+      { id: 'animals', label: 'Animals' },
+      { id: 'none', label: 'None' },
+    ], 'both', (id) => this.handlers.onSetShow(...showMap[id]));
+  }
+
+  // A single-select segmented button group.
+  segGroup(container, defs, activeId, onPick) {
+    const buttons = {};
+    defs.forEach(d => {
+      const b = document.createElement('button');
+      b.className = 'hm-opt';
+      b.textContent = d.label;
+      if (d.id === activeId) b.classList.add('active');
+      b.addEventListener('click', () => {
+        for (const id in buttons) buttons[id].classList.toggle('active', id === d.id);
+        onPick(d.id);
+      });
+      container.appendChild(b);
+      buttons[d.id] = b;
+    });
+  }
+
   // ---- generic overlay + control wiring --------------------------------
   toggle(overlay, show) {
     const open = show ?? overlay.hasAttribute('hidden');
@@ -320,6 +360,7 @@ export class UI {
     document.getElementById('btn-reset').addEventListener('click',
       () => this.handlers.onReset());
 
+    this.wireMenu('btn-map', this.mapOverlay, 'map-close');
     this.wireMenu('btn-harvest', this.harvestOverlay, 'hm-close',
       () => { if (this.harvestTab === 'colony') this.drawColony(); });
     this.wireMenu('btn-stats', this.statsOverlay, 'stats-close',

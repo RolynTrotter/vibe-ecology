@@ -1,5 +1,5 @@
 // Minimal offline cache for the PWA. Bump CACHE when assets change.
-const CACHE = 'vibe-ecology-v6';
+const CACHE = 'vibe-ecology-v7';
 const ASSETS = [
   './',
   './index.html',
@@ -18,6 +18,7 @@ const ASSETS = [
   './src/camera.js',
   './src/input.js',
   './src/renderer.js',
+  './src/textures.js',
   './src/graphs.js',
   './src/score.js',
   './src/ui.js',
