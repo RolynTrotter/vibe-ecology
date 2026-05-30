@@ -30,6 +30,9 @@ class Game {
 
     this.running = true;
     this.speedIdx = 0;
+    this.viewMode = 'terrain';
+    this.showPlants = true;
+    this.showAnimals = true;
     this.accumulator = 0;
     this.lastTime = performance.now();
     this.fps = 0;
@@ -45,6 +48,11 @@ class Game {
         return SPEEDS[this.speedIdx];
       },
       onReset: () => this.reset(),
+      onSetView: (mode) => { this.viewMode = mode; this.renderer.setView(mode); },
+      onSetShow: (plants, animals) => {
+        this.showPlants = plants; this.showAnimals = animals;
+        this.renderer.setShow(plants, animals);
+      },
     }, this.harvest, this.colony, this.sim.world);
 
     // The population graph lives inside the Stats > Over time tab; the UI owns
@@ -62,11 +70,18 @@ class Game {
     this.sim = new Simulation();
     this.camera.world = this.sim.world;
     this.renderer = new Renderer(this.canvas, this.minimap, this.sim.world);
+    this.applyView();
     this.graph = new PopulationGraph(this.ui.graphCanvas);
     this.colony = new Colony();
     this.ui.colony = this.colony;
     this.ui.world = this.sim.world; // keep the Stats > Terrain tab in sync
     this.resize();
+  }
+
+  // Re-apply the user's display choices to a freshly-built renderer.
+  applyView() {
+    this.renderer.setView(this.viewMode);
+    this.renderer.setShow(this.showPlants, this.showAnimals);
   }
 
   // ---- dev tools hooks --------------------------------------------------

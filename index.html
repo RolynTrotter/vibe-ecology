@@ -31,13 +31,18 @@
     <canvas id="minimap" width="220" height="160"></canvas>
   </div>
 
-  <!-- Bottom-right: controls -->
-  <div id="controls">
-    <button id="btn-dev" title="Dev tools">🛠</button>
-    <button id="btn-stats" title="Statistics">📊</button>
-    <button id="btn-harvest" title="Harvesting & Colony">🧺</button>
+  <!-- Bottom-left: simulation controls -->
+  <div id="sim-controls">
     <button id="btn-play" title="Play / Pause">⏸</button>
     <button id="btn-speed" title="Speed">1×</button>
+  </div>
+
+  <!-- Bottom-right: menus -->
+  <div id="menu-controls">
+    <button id="btn-map" title="Map display">🗺</button>
+    <button id="btn-stats" title="Statistics">📊</button>
+    <button id="btn-harvest" title="Harvesting & Colony">🧺</button>
+    <button id="btn-dev" title="Dev tools">🛠</button>
     <button id="btn-reset" title="Regenerate world">⟳</button>
   </div>
 
@@ -69,6 +74,20 @@
       </div>
       <div id="stats-tabs" class="tabs"></div>
       <div id="stats-body"></div>
+    </div>
+  </div>
+
+  <!-- Map display menu (hidden until opened) -->
+  <div id="map-overlay" hidden>
+    <div id="map-menu" class="panel" role="dialog" aria-label="Map display">
+      <div class="hm-head">
+        <span>Map display</span>
+        <button id="map-close" aria-label="Close">✕</button>
+      </div>
+      <h4>View</h4>
+      <div id="map-view" class="hm-seg-wide"></div>
+      <h4>Show life</h4>
+      <div id="map-show" class="hm-seg-wide"></div>
     </div>
   </div>
 
