@@ -10,9 +10,9 @@ describe('foodweb', () => {
     eq(lvl('naze'), 0, 'naze is a producer');
     eq(lvl('ghoti'), 1, 'ghoti eats a producer');
     eq(lvl('latt'), 1, 'latt eats a producer');
-    // Daot eats herbivores (level 1) -> level 2.
+    // Dinsopu (id 'daot') eats herbivores (level 1) -> level 2.
     eq(lvl('daot'), 2, 'daot eats herbivores');
-    // Qraken eats Ghoti(1) and Daot(2) -> level 3.
+    // Qraken eats Ghoti(1) and Dinsopu(2) -> level 3.
     eq(lvl('qraken'), 3, 'qraken is apex');
   });
 
@@ -21,7 +21,7 @@ describe('foodweb', () => {
     eq(fw.level.length, SPECIES.length, 'a level per species');
     ok(fw.byLevel[0].length > 0, 'has producers');
     ok(fw.maxLevel >= 3, 'web is at least 4 tiers deep');
-    // Every Daot diet entry should appear as an edge into Daot.
+    // Every Dinsopu (id 'daot') diet entry should appear as an edge into it.
     const di = SPECIES_INDEX['daot'];
     const ghoti = SPECIES_INDEX['ghoti'];
     ok(fw.edges.some(([from, to]) => from === ghoti && to === di),

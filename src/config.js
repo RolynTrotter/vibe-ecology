@@ -108,7 +108,7 @@ export const SPECIES = [
   // ---- Producers ----
   {
     id: 'qelp', name: 'Qelp', kind: 'plant',
-    color: '#2f8f5b',
+    color: '#2f9f7a',                                   // teal-green (aquatic kelp)
     habitat: { elevation: [0.30, 0.42] },               // shallow water
     size: 0.7,
     growth: 0.45, maxEnergy: 22, matureAge: 60,
@@ -128,7 +128,7 @@ export const SPECIES = [
   },
   {
     id: 'cacta', name: 'Cacta', kind: 'plant',
-    color: '#3f9e6b',
+    color: '#57a06a',                                   // muted mid green (desert)
     habitat: { elevation: [0.42, 0.95], moisture: [0, 0.34], rockiness: [0, 0.7] }, // dry
     size: 0.85,
     growth: 0.3, maxEnergy: 28, matureAge: 95,
@@ -138,7 +138,7 @@ export const SPECIES = [
   },
   {
     id: 'muss', name: 'Muss', kind: 'plant',
-    color: '#7fae5c',
+    color: '#8cbf5a',                                   // light yellow-green (lichen)
     habitat: { elevation: [0.42, 1], rockiness: [0.6, 1] },   // rocky ground cover
     size: 0.5,
     growth: 0.5, maxEnergy: 14, matureAge: 40,
@@ -148,7 +148,7 @@ export const SPECIES = [
   },
   {
     id: 'mmmapple', name: 'Mmmapple', kind: 'plant',
-    color: '#9b5fb0',
+    color: '#2f7d4a',                                   // deep forest green (tree)
     habitat: { elevation: [0.45, 0.78], moisture: [0.4, 0.75], rockiness: [0, 0.5] },
     size: 1.6,                                              // a tree
     growth: 0.5, maxEnergy: 42, matureAge: 220,
@@ -194,7 +194,7 @@ export const SPECIES = [
 
   // ---- Predators ----
   {
-    id: 'daot', name: 'Daot', kind: 'animal',
+    id: 'daot', name: 'Dinsopu', kind: 'animal',
     color: '#9b78d4',
     habitat: { elevation: [0.30, 0.70] },                   // amphibious
     diet: ['ghoti', 'latt', 'unclet'],                      // generalist predator
@@ -231,8 +231,8 @@ export const SPECIES = [
 // --- World / simulation --------------------------------------------------
 export const CONFIG = {
   world: {
-    width: 240,
-    height: 176,
+    width: 190,                 // smaller world so a given plant count reads denser/lusher
+    height: 140,
     seed: 1337,
     noiseScale: 0.05,    // smaller => bigger landmasses/regions
     coralScale: 0.10,    // coral patch noise frequency
