@@ -108,7 +108,7 @@ export const SPECIES = [
   // ---- Producers ----
   {
     id: 'qelp', name: 'Qelp', kind: 'plant',
-    color: '#2f8f5b',
+    color: '#2f9f7a',                                   // teal-green (aquatic kelp)
     habitat: { elevation: [0.30, 0.42] },               // shallow water
     size: 0.7,
     growth: 0.45, maxEnergy: 22, matureAge: 60,
@@ -128,7 +128,7 @@ export const SPECIES = [
   },
   {
     id: 'cacta', name: 'Cacta', kind: 'plant',
-    color: '#3f9e6b',
+    color: '#57a06a',                                   // muted mid green (desert)
     habitat: { elevation: [0.42, 0.95], moisture: [0, 0.34], rockiness: [0, 0.7] }, // dry
     size: 0.85,
     growth: 0.3, maxEnergy: 28, matureAge: 95,
@@ -138,7 +138,7 @@ export const SPECIES = [
   },
   {
     id: 'muss', name: 'Muss', kind: 'plant',
-    color: '#7fae5c',
+    color: '#8cbf5a',                                   // light yellow-green (lichen)
     habitat: { elevation: [0.42, 1], rockiness: [0.6, 1] },   // rocky ground cover
     size: 0.5,
     growth: 0.5, maxEnergy: 14, matureAge: 40,
@@ -148,12 +148,12 @@ export const SPECIES = [
   },
   {
     id: 'mmmapple', name: 'Mmmapple', kind: 'plant',
-    color: '#9b5fb0',
+    color: '#2f7d4a',                                   // deep forest green (tree)
     habitat: { elevation: [0.45, 0.78], moisture: [0.4, 0.75], rockiness: [0, 0.5] },
     size: 1.6,                                              // a tree
     growth: 0.5, maxEnergy: 42, matureAge: 220,
     reproEnergy: 26, reproCost: 16, reproCooldown: 230,
-    spreadRadius: 13, crowdLimit: 2, biteEnergy: 11,        // helicopter seeds
+    spreadRadius: 13, crowdLimit: 3, biteEnergy: 11,        // helicopter seeds
     wexle: { food: 8, material: 6, value: 6 },
   },
   // ---- Herbivores ----
@@ -176,7 +176,7 @@ export const SPECIES = [
     diet: ['naze'],
     size: 0.9, speed: 0.17, sense: 6.5,
     metabolism: 0.05, maxEnergy: 42, hungerAt: 0.7, eatGain: 1.0,
-    matureAge: 150, reproEnergy: 28, reproCost: 15, reproCooldown: 210,
+    matureAge: 150, reproEnergy: 28, reproCost: 15, reproCooldown: 180,
     crowdRadius: 6, crowdLimit: 4, fleeFactor: 0.8,
     wexle: { food: 5, material: 3, value: 4 },
   },
@@ -194,14 +194,14 @@ export const SPECIES = [
 
   // ---- Predators ----
   {
-    id: 'daot', name: 'Daot', kind: 'animal',
+    id: 'dinsopu', name: 'Dinsopu', kind: 'animal',
     color: '#9b78d4',
     habitat: { elevation: [0.30, 0.70] },                   // amphibious
     diet: ['ghoti', 'latt', 'unclet'],                      // generalist predator
     size: 1.3, speed: 0.15, sense: 9,
     metabolism: 0.085, maxEnergy: 80, hungerAt: 0.8, eatGain: 0.55,
     matureAge: 350, reproEnergy: 60, reproCost: 36, reproCooldown: 480,
-    crowdRadius: 16, crowdLimit: 1, fleeFactor: 0, lifespan: 2400,
+    crowdRadius: 10, crowdLimit: 1, fleeFactor: 0, lifespan: 2400, // radius scaled to the smaller world
     wexle: { food: 9, material: 5, value: 8 },
   },
   {
@@ -219,7 +219,7 @@ export const SPECIES = [
     id: 'qraken', name: 'Qraken', kind: 'animal',
     color: '#6b3f8f',
     habitat: { elevation: [0, 0.42] },                      // bound to water
-    diet: ['ghoti', 'daot'],                                // apex (water reach)
+    diet: ['ghoti', 'dinsopu'],                             // apex (water reach)
     size: 2.2, speed: 0.14, sense: 12,
     metabolism: 0.07, maxEnergy: 120, hungerAt: 0.82, eatGain: 0.5,
     matureAge: 520, reproEnergy: 92, reproCost: 56, reproCooldown: 720,
@@ -231,8 +231,8 @@ export const SPECIES = [
 // --- World / simulation --------------------------------------------------
 export const CONFIG = {
   world: {
-    width: 240,
-    height: 176,
+    width: 190,                 // smaller world so a given plant count reads denser/lusher
+    height: 140,
     seed: 1337,
     noiseScale: 0.05,    // smaller => bigger landmasses/regions
     coralScale: 0.10,    // coral patch noise frequency
@@ -248,7 +248,7 @@ export const CONFIG = {
   initial: {
     qelp: 1400, naze: 1800, cacta: 500, muss: 700, mmmapple: 180,
     ghoti: 300, latt: 220, unclet: 120,
-    daot: 22, eagul: 45, qraken: 8,
+    dinsopu: 22, eagul: 45, qraken: 8,
   },
 
   graph: {

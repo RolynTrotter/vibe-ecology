@@ -28,9 +28,9 @@ The food web:
 | **Ghoti** (fish) | animal | shallow water | Qelp |
 | **Latt** (rat) | animal | loam | Naze |
 | **Unclet** (goat) | animal | all land (generalist) | Naze, Cacta, Muss, Mmmapple |
-| **Daot** (toad) | animal | water + land (amphibious) | Ghoti, Latt |
+| **Dinsopu** (toad) | animal | water + land (amphibious) | Ghoti, Latt |
 | **Eagul** (bird) | animal | everywhere (flies) | Ghoti, Naze |
-| **Qraken** (squid) | animal | water (apex) | Ghoti, Daot |
+| **Qraken** (squid) | animal | water (apex) | Ghoti, Dinsopu |
 
 Every organism is an **individual agent** that wanders, gets hungry, forages,
 flees predators, and reproduces.

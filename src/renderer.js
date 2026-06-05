@@ -9,6 +9,15 @@ import { terrainTexel, fieldRamp } from './textures.js';
 const TWO_PI = Math.PI * 2;
 const TEX_SCALE = 4; // device px per cell in the textured terrain layer
 
+// Plants draw larger than their sim `size` so neighbouring individuals overlap
+// into mats of foliage (a "lush" read) rather than scattered specks. Animals
+// keep the tighter 0.5 factor so they stay legible as individuals. These are
+// purely visual — `size` itself is left alone because the sim couples to it
+// (grazer eat-distance, offspring spawn offset).
+const PLANT_RENDER_SCALE = 1.15;
+const PLANT_MIN_PX = 1.8; // floor so a plant never collapses to a single speck
+const ANIMAL_RENDER_SCALE = 0.5;
+
 // 4x4 Bayer ordered-dither matrix, normalized to (0,1).
 const BAYER4 = [
   0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5,
@@ -153,7 +162,9 @@ export class Renderer {
       const def = SPECIES[sp];
       if (def.kind === 'plant' ? !this.showPlants : !this.showAnimals) continue;
       ctx.fillStyle = def.color;
-      const radius = Math.max(1, def.size * z * 0.5);
+      const radius = def.kind === 'plant'
+        ? Math.max(PLANT_MIN_PX, def.size * z * PLANT_RENDER_SCALE)
+        : Math.max(1, def.size * z * ANIMAL_RENDER_SCALE);
       ctx.beginPath();
       for (let i = 0; i < n; i++) {
         if (!s.alive[i] || s.species[i] !== sp) continue;
