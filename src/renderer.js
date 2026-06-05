@@ -18,6 +18,16 @@ const PLANT_RENDER_SCALE = 1.15;
 const PLANT_MIN_PX = 1.8; // floor so a plant never collapses to a single speck
 const ANIMAL_RENDER_SCALE = 0.5;
 
+// Back-to-front draw order so the scene reads with depth: ground plants, then
+// the critters walking among them, then tree canopies overhead, then birds on
+// top. The coral overlay is blitted between animals and canopy so reef-bound
+// fish look tucked into the coral. `canopy`/`aerial` are species flags (config).
+const LAYER = { GROUND_PLANT: 0, GROUND_ANIMAL: 1, CANOPY: 2, AERIAL: 3 };
+function renderLayerOf(def) {
+  if (def.kind === 'plant') return def.canopy ? LAYER.CANOPY : LAYER.GROUND_PLANT;
+  return def.aerial ? LAYER.AERIAL : LAYER.GROUND_ANIMAL;
+}
+
 // 4x4 Bayer ordered-dither matrix, normalized to (0,1).
 const BAYER4 = [
   0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5,
@@ -46,6 +56,7 @@ export class Renderer {
 
   buildLayers() {
     this.terrainLayer = this.bakeTerrain();
+    this.coralOverlay = this.bakeCoralOverlay();
     this.fieldLayers = [0, 1, 2].map(f => this.bakeField(f));
     this.minimapLayer = this.bakeMinimap();
   }
@@ -82,6 +93,33 @@ export class Renderer {
           type = mix > 0 && bayer < mix ? s : p;
         }
         const c = terrainTexel(type, px, py);
+        const o = (py * cw + px) * 4;
+        data[o] = c.r; data[o + 1] = c.g; data[o + 2] = c.b; data[o + 3] = 255;
+      }
+    }
+    octx.putImageData(img, 0, 0);
+    return off;
+  }
+
+  // Just the coral stipple on a transparent canvas, matching the coral texels
+  // baked into the terrain. Blitted over the water critters each frame so fish
+  // sheltering on a reef look tucked inside it (coral is their refuge).
+  bakeCoralOverlay() {
+    const w = this.world, W = w.width, H = w.height, TS = TEX_SCALE;
+    const cw = W * TS, ch = H * TS;
+    const off = document.createElement('canvas');
+    off.width = cw; off.height = ch;
+    const octx = off.getContext('2d');
+    const img = octx.createImageData(cw, ch); // alpha defaults to 0 (transparent)
+    const data = img.data;
+    for (let py = 0; py < ch; py++) {
+      const cy = (py / TS) | 0;
+      for (let px = 0; px < cw; px++) {
+        const cx = (px / TS) | 0;
+        if (w.terrain[cy * W + cx] !== TERRAIN.CORAL) continue;
+        const bayer = BAYER4[(py & 3) * 4 + (px & 3)];
+        if (bayer >= 0.55) continue;                 // only the coral-coloured texels
+        const c = terrainTexel(TERRAIN.CORAL, px, py);
         const o = (py * cw + px) * 4;
         data[o] = c.r; data[o + 1] = c.g; data[o + 2] = c.b; data[o + 3] = 255;
       }
@@ -150,33 +188,56 @@ export class Renderer {
     ctx.drawImage(layer, 0, 0, layer.width, layer.height,
       ox, oy, this.world.width * z, this.world.height * z);
 
-    // --- Entities (culled to view, filtered by kind) ---
+    // --- Entities, drawn back-to-front and clipped to the map rectangle so
+    //     nothing (including reef coral) spills past the world edge. ---
     const s = sim.store;
     const b = camera.visibleBounds();
     const pad = 2;
     const x0 = b.x0 - pad, x1 = b.x1 + pad, y0 = b.y0 - pad, y1 = b.y1 + pad;
     const n = s.highWater;
 
-    for (let sp = 0; sp < SPECIES.length; sp++) {
-      if (s.counts[sp] === 0) continue;
-      const def = SPECIES[sp];
-      if (def.kind === 'plant' ? !this.showPlants : !this.showAnimals) continue;
-      ctx.fillStyle = def.color;
-      const radius = def.kind === 'plant'
-        ? Math.max(PLANT_MIN_PX, def.size * z * PLANT_RENDER_SCALE)
-        : Math.max(1, def.size * z * ANIMAL_RENDER_SCALE);
-      ctx.beginPath();
-      for (let i = 0; i < n; i++) {
-        if (!s.alive[i] || s.species[i] !== sp) continue;
-        const wx = s.x[i], wy = s.y[i];
-        if (wx < x0 || wx > x1 || wy < y0 || wy > y1) continue;
-        const pxs = (wx - camera.x) * z + W / 2;
-        const pys = (wy - camera.y) * z + H / 2;
-        ctx.moveTo(pxs + radius, pys);
-        ctx.arc(pxs, pys, radius, 0, TWO_PI);
+    const drawLayer = (wantLayer) => {
+      for (let sp = 0; sp < SPECIES.length; sp++) {
+        if (s.counts[sp] === 0) continue;
+        const def = SPECIES[sp];
+        if (renderLayerOf(def) !== wantLayer) continue;
+        if (def.kind === 'plant' ? !this.showPlants : !this.showAnimals) continue;
+        ctx.fillStyle = def.color;
+        const radius = def.kind === 'plant'
+          ? Math.max(PLANT_MIN_PX, def.size * z * PLANT_RENDER_SCALE)
+          : Math.max(1, def.size * z * ANIMAL_RENDER_SCALE);
+        ctx.beginPath();
+        for (let i = 0; i < n; i++) {
+          if (!s.alive[i] || s.species[i] !== sp) continue;
+          const wx = s.x[i], wy = s.y[i];
+          if (wx < x0 || wx > x1 || wy < y0 || wy > y1) continue;
+          const pxs = (wx - camera.x) * z + W / 2;
+          const pys = (wy - camera.y) * z + H / 2;
+          ctx.moveTo(pxs + radius, pys);
+          ctx.arc(pxs, pys, radius, 0, TWO_PI);
+        }
+        ctx.fill();
       }
-      ctx.fill();
+    };
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(ox, oy, this.world.width * z, this.world.height * z);
+    ctx.clip();
+
+    drawLayer(LAYER.GROUND_PLANT);
+    drawLayer(LAYER.GROUND_ANIMAL);
+    // Coral re-stamped over the water critters (terrain view only) — fish read
+    // as hidden in the reef. Crisp blit to match the baked terrain stipple.
+    if (this.viewMode === 'terrain') {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(this.coralOverlay, 0, 0, this.coralOverlay.width, this.coralOverlay.height,
+        ox, oy, this.world.width * z, this.world.height * z);
     }
+    drawLayer(LAYER.CANOPY);
+    drawLayer(LAYER.AERIAL);
+
+    ctx.restore();
 
     this.drawMinimap(camera);
   }

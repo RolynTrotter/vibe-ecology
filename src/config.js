@@ -149,6 +149,7 @@ export const SPECIES = [
   {
     id: 'mmmapple', name: 'Mmmapple', kind: 'plant',
     color: '#2f7d4a',                                   // deep forest green (tree)
+    canopy: true,                                       // draws as a canopy above ground critters
     habitat: { elevation: [0.45, 0.78], moisture: [0.4, 0.75], rockiness: [0, 0.5] },
     size: 1.6,                                              // a tree
     growth: 0.5, maxEnergy: 42, matureAge: 220,
@@ -160,7 +161,7 @@ export const SPECIES = [
   {
     id: 'ghoti', name: 'Ghoti', kind: 'animal',
     color: '#5fb6e6',
-    habitat: { elevation: [0.30, 0.42] },                   // shallow water
+    habitat: { elevation: [0.30, 0.42], moisture: [0, 0.55] }, // shallow water, not mud
     diet: ['qelp'],
     size: 0.9, speed: 0.16, sense: 6.5,
     metabolism: 0.05, maxEnergy: 42, hungerAt: 0.7, eatGain: 1.0,
@@ -207,6 +208,7 @@ export const SPECIES = [
   {
     id: 'eagul', name: 'Eagul', kind: 'animal',
     color: '#d6d2c4',
+    aerial: true,                                           // flies above the canopy
     habitat: { elevation: [0.30, 1] },                      // flies over everything
     diet: ['ghoti', 'naze'],                                // generalist bird
     size: 1.0, speed: 0.22, sense: 10,
