@@ -153,7 +153,7 @@ export const SPECIES = [
     size: 1.6,                                              // a tree
     growth: 0.5, maxEnergy: 42, matureAge: 220,
     reproEnergy: 26, reproCost: 16, reproCooldown: 230,
-    spreadRadius: 13, crowdLimit: 2, biteEnergy: 11,        // helicopter seeds
+    spreadRadius: 13, crowdLimit: 3, biteEnergy: 11,        // helicopter seeds
     wexle: { food: 8, material: 6, value: 6 },
   },
   // ---- Herbivores ----
@@ -176,7 +176,7 @@ export const SPECIES = [
     diet: ['naze'],
     size: 0.9, speed: 0.17, sense: 6.5,
     metabolism: 0.05, maxEnergy: 42, hungerAt: 0.7, eatGain: 1.0,
-    matureAge: 150, reproEnergy: 28, reproCost: 15, reproCooldown: 210,
+    matureAge: 150, reproEnergy: 28, reproCost: 15, reproCooldown: 180,
     crowdRadius: 6, crowdLimit: 4, fleeFactor: 0.8,
     wexle: { food: 5, material: 3, value: 4 },
   },
@@ -201,7 +201,7 @@ export const SPECIES = [
     size: 1.3, speed: 0.15, sense: 9,
     metabolism: 0.085, maxEnergy: 80, hungerAt: 0.8, eatGain: 0.55,
     matureAge: 350, reproEnergy: 60, reproCost: 36, reproCooldown: 480,
-    crowdRadius: 16, crowdLimit: 1, fleeFactor: 0, lifespan: 2400,
+    crowdRadius: 10, crowdLimit: 1, fleeFactor: 0, lifespan: 2400, // radius scaled to the smaller world
     wexle: { food: 9, material: 5, value: 8 },
   },
   {
