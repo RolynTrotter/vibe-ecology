@@ -69,10 +69,10 @@ describe('habitat', () => {
 
   test('coral hides prey only from non-refuge predators', () => {
     const ghoti = SPECIES[SPECIES_INDEX['ghoti']]; // coralRefuge: true
-    const daot = SPECIES[SPECIES_INDEX['daot']];   // predator, no refuge
-    ok(coralHides(daot, TERRAIN.CORAL), 'predator blocked by coral');
+    const dinsopu = SPECIES[SPECIES_INDEX['dinsopu']];   // predator, no refuge
+    ok(coralHides(dinsopu, TERRAIN.CORAL), 'predator blocked by coral');
     ok(!coralHides(ghoti, TERRAIN.CORAL), 'refuge fish not blocked');
-    ok(!coralHides(daot, TERRAIN.SHALLOW_WATER), 'open water never hides');
+    ok(!coralHides(dinsopu, TERRAIN.SHALLOW_WATER), 'open water never hides');
   });
 
   test('suitability is 0 outside the world', () => {

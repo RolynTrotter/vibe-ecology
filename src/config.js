@@ -194,7 +194,7 @@ export const SPECIES = [
 
   // ---- Predators ----
   {
-    id: 'daot', name: 'Dinsopu', kind: 'animal',
+    id: 'dinsopu', name: 'Dinsopu', kind: 'animal',
     color: '#9b78d4',
     habitat: { elevation: [0.30, 0.70] },                   // amphibious
     diet: ['ghoti', 'latt', 'unclet'],                      // generalist predator
@@ -219,7 +219,7 @@ export const SPECIES = [
     id: 'qraken', name: 'Qraken', kind: 'animal',
     color: '#6b3f8f',
     habitat: { elevation: [0, 0.42] },                      // bound to water
-    diet: ['ghoti', 'daot'],                                // apex (water reach)
+    diet: ['ghoti', 'dinsopu'],                             // apex (water reach)
     size: 2.2, speed: 0.14, sense: 12,
     metabolism: 0.07, maxEnergy: 120, hungerAt: 0.82, eatGain: 0.5,
     matureAge: 520, reproEnergy: 92, reproCost: 56, reproCooldown: 720,
@@ -248,7 +248,7 @@ export const CONFIG = {
   initial: {
     qelp: 1400, naze: 1800, cacta: 500, muss: 700, mmmapple: 180,
     ghoti: 300, latt: 220, unclet: 120,
-    daot: 22, eagul: 45, qraken: 8,
+    dinsopu: 22, eagul: 45, qraken: 8,
   },
 
   graph: {
