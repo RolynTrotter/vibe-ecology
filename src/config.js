@@ -204,7 +204,7 @@ export const SPECIES = [
   {
     id: 'dinsopu', name: 'Dinsopu', kind: 'animal',
     color: '#9b78d4',
-    sexual: true, mateRadius: 14,                           // pairs off to breed
+    sexual: true, mateRadius: 36,                           // pairs off; radius scaled to its sparse spacing
     habitat: { elevation: [0.30, 0.70] },                   // amphibious
     diet: ['ghoti', 'latt', 'unclet', 'necrow'],            // generalist predator; nabs feeding Necrow
     size: 1.3, speed: 0.15, sense: 9,
@@ -217,7 +217,7 @@ export const SPECIES = [
     id: 'eagul', name: 'Eagul', kind: 'animal',
     color: '#d6d2c4',
     aerial: true,                                           // flies above the canopy
-    sexual: true, mateRadius: 14,                           // pairs off to breed
+    sexual: true, mateRadius: 24,                           // pairs off; radius scaled to its spacing
     habitat: { elevation: [0.30, 1] },                      // flies over everything
     diet: ['ghoti', 'naze'],                                // generalist bird
     size: 1.0, speed: 0.22, sense: 10,
@@ -244,7 +244,7 @@ export const SPECIES = [
     color: '#1c1c22',                                       // small and black
     aerial: true,                                           // perches/soars; crosses water & coral
     scavenger: true,                                        // eats decaying carcasses, not the living
-    sexual: true, mateRadius: 30,                           // pairs off; ranges far to find one
+    sexual: true, mateRadius: 45,                           // pairs off; ranges far to find one
     feedingVulnerable: true,                                // only catchable while down on a carcass
     bloomOnFeed: true,                                      // its leavings fertilize new plant growth
     shape: 'triangle',                                      // drawn as a triangle, a break from circles
