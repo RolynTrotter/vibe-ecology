@@ -9,6 +9,7 @@
 //  value harvested, which keeps the "as needed" feedback loop self-consistent.
 // ===========================================================================
 import { SPECIES, SPECIES_INDEX } from './config.js';
+import { ENTITY_STATE } from './entities.js';
 
 export const HARVEST_LEVELS = ['none', 'some', 'alot', 'asneeded'];
 export const HARVEST_LABELS = {
@@ -84,7 +85,8 @@ export class HarvestController {
     arr.length = 0;
     const n = store.highWater;
     for (let i = 0; i < n; i++) {
-      if (store.alive[i] && store.species[i] === speciesIdx) arr.push(i);
+      if (store.alive[i] && store.state[i] === ENTITY_STATE.ALIVE &&
+          store.species[i] === speciesIdx) arr.push(i);
     }
     const len = arr.length;
     const take = Math.min(want, len);

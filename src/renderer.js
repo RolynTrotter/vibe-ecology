@@ -3,7 +3,8 @@
 //  then each frame blits the selected layer and draws culled, kind-filtered
 //  entities, plus the minimap.
 // ===========================================================================
-import { SPECIES, TERRAIN, TERRAIN_INFO, classifyDither } from './config.js';
+import { SPECIES, CONFIG, TERRAIN, TERRAIN_INFO, classifyDither } from './config.js';
+import { ENTITY_STATE } from './entities.js';
 import { terrainTexel, fieldRamp } from './textures.js';
 
 const TWO_PI = Math.PI * 2;
@@ -27,6 +28,12 @@ function renderLayerOf(def) {
   if (def.kind === 'plant') return def.canopy ? LAYER.CANOPY : LAYER.GROUND_PLANT;
   return def.aerial ? LAYER.AERIAL : LAYER.GROUND_ANIMAL;
 }
+
+// Childhood: the young render smaller and paler, growing into the adult form by
+// maturity. JUVENILE_MIN is the fraction of adult size at birth.
+const JUVENILE_MIN = 0.45;
+const JUVENILE_TINT = 0.45;    // how far a juvenile's colour is washed toward white
+const CORPSE_COLOR = '#7d7d82'; // grey carrion, alpha-faded by how far it's rotted
 
 // 4x4 Bayer ordered-dither matrix, normalized to (0,1).
 const BAYER4 = [
@@ -196,28 +203,97 @@ export class Renderer {
     const x0 = b.x0 - pad, x1 = b.x1 + pad, y0 = b.y0 - pad, y1 = b.y1 + pad;
     const n = s.highWater;
 
-    const drawLayer = (wantLayer) => {
+    const sx = camera.x, sy = camera.y;
+    const visible = (wx, wy) => wx >= x0 && wx <= x1 && wy >= y0 && wy <= y1;
+    // Append a body outline (circle, or triangle for the odd-one-out) to the
+    // current path at screen position (px,py) with the given radius.
+    const shape = (px, py, r, triangle) => {
+      if (triangle) {
+        const h = r * 1.4;
+        ctx.moveTo(px, py - h);
+        ctx.lineTo(px - r, py + r * 0.8);
+        ctx.lineTo(px + r, py + r * 0.8);
+        ctx.closePath();
+      } else {
+        ctx.moveTo(px + r, py);
+        ctx.arc(px, py, r, 0, TWO_PI);
+      }
+    };
+
+    const drawPlants = (wantLayer) => {
+      if (!this.showPlants) return;
       for (let sp = 0; sp < SPECIES.length; sp++) {
         if (s.counts[sp] === 0) continue;
         const def = SPECIES[sp];
-        if (renderLayerOf(def) !== wantLayer) continue;
-        if (def.kind === 'plant' ? !this.showPlants : !this.showAnimals) continue;
+        if (def.kind !== 'plant' || renderLayerOf(def) !== wantLayer) continue;
         ctx.fillStyle = def.color;
-        const radius = def.kind === 'plant'
-          ? Math.max(PLANT_MIN_PX, def.size * z * PLANT_RENDER_SCALE)
-          : Math.max(1, def.size * z * ANIMAL_RENDER_SCALE);
+        const radius = Math.max(PLANT_MIN_PX, def.size * z * PLANT_RENDER_SCALE);
         ctx.beginPath();
         for (let i = 0; i < n; i++) {
           if (!s.alive[i] || s.species[i] !== sp) continue;
           const wx = s.x[i], wy = s.y[i];
-          if (wx < x0 || wx > x1 || wy < y0 || wy > y1) continue;
-          const pxs = (wx - camera.x) * z + W / 2;
-          const pys = (wy - camera.y) * z + H / 2;
-          ctx.moveTo(pxs + radius, pys);
-          ctx.arc(pxs, pys, radius, 0, TWO_PI);
+          if (!visible(wx, wy)) continue;
+          shape((wx - sx) * z + W / 2, (wy - sy) * z + H / 2, radius, false);
         }
         ctx.fill();
       }
+    };
+
+    const drawAnimals = (wantLayer) => {
+      if (!this.showAnimals) return;
+      for (let sp = 0; sp < SPECIES.length; sp++) {
+        if (s.counts[sp] === 0) continue;
+        const def = SPECIES[sp];
+        if (def.kind === 'plant' || renderLayerOf(def) !== wantLayer) continue;
+        const tri = def.shape === 'triangle';
+        const baseR = Math.max(1, def.size * z * ANIMAL_RENDER_SCALE);
+        const ma = def.matureAge || 1;
+        // Adults (full size, full colour). Then juveniles (smaller, paler) in a
+        // second pass so each can use its own fill style.
+        ctx.fillStyle = def.color;
+        ctx.beginPath();
+        for (let i = 0; i < n; i++) {
+          if (!s.alive[i] || s.species[i] !== sp) continue;
+          if (s.state[i] !== ENTITY_STATE.ALIVE || s.age[i] < ma) continue;
+          const wx = s.x[i], wy = s.y[i];
+          if (!visible(wx, wy)) continue;
+          shape((wx - sx) * z + W / 2, (wy - sy) * z + H / 2, baseR, tri);
+        }
+        ctx.fill();
+
+        ctx.fillStyle = lightenHex(def.color, JUVENILE_TINT);
+        ctx.beginPath();
+        for (let i = 0; i < n; i++) {
+          if (!s.alive[i] || s.species[i] !== sp) continue;
+          if (s.state[i] !== ENTITY_STATE.ALIVE || s.age[i] >= ma) continue;
+          const wx = s.x[i], wy = s.y[i];
+          if (!visible(wx, wy)) continue;
+          const f = s.age[i] / ma;
+          const r = baseR * (JUVENILE_MIN + (1 - JUVENILE_MIN) * f);
+          shape((wx - sx) * z + W / 2, (wy - sy) * z + H / 2, r, tri);
+        }
+        ctx.fill();
+      }
+    };
+
+    // Old-age carcasses: grey, fading out as they rot. Few enough to draw each
+    // with its own alpha.
+    const drawCorpses = () => {
+      if (!this.showAnimals) return;
+      const fade = CONFIG.sim.decayTicks || 1;
+      ctx.fillStyle = CORPSE_COLOR;
+      for (let i = 0; i < n; i++) {
+        if (!s.alive[i] || s.state[i] !== ENTITY_STATE.DECAYING) continue;
+        const wx = s.x[i], wy = s.y[i];
+        if (!visible(wx, wy)) continue;
+        const def = SPECIES[s.species[i]];
+        const r = Math.max(1, def.size * z * ANIMAL_RENDER_SCALE);
+        ctx.globalAlpha = Math.max(0.12, s.decay[i] / fade);
+        ctx.beginPath();
+        shape((wx - sx) * z + W / 2, (wy - sy) * z + H / 2, r, false);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
     };
 
     ctx.save();
@@ -225,8 +301,9 @@ export class Renderer {
     ctx.rect(ox, oy, this.world.width * z, this.world.height * z);
     ctx.clip();
 
-    drawLayer(LAYER.GROUND_PLANT);
-    drawLayer(LAYER.GROUND_ANIMAL);
+    drawPlants(LAYER.GROUND_PLANT);
+    drawCorpses();                 // carrion lies on the ground, beneath the living
+    drawAnimals(LAYER.GROUND_ANIMAL);
     // Coral re-stamped over the water critters (terrain view only) — fish read
     // as hidden in the reef. Crisp blit to match the baked terrain stipple.
     if (this.viewMode === 'terrain') {
@@ -234,8 +311,8 @@ export class Renderer {
       ctx.drawImage(this.coralOverlay, 0, 0, this.coralOverlay.width, this.coralOverlay.height,
         ox, oy, this.world.width * z, this.world.height * z);
     }
-    drawLayer(LAYER.CANOPY);
-    drawLayer(LAYER.AERIAL);
+    drawPlants(LAYER.CANOPY);     // tree canopies over the ground critters
+    drawAnimals(LAYER.AERIAL);    // birds (and Necrow) on top
 
     ctx.restore();
 
@@ -257,4 +334,11 @@ export class Renderer {
 function hexToRgb(hex) {
   const v = parseInt(hex.slice(1), 16);
   return { r: (v >> 16) & 255, g: (v >> 8) & 255, b: v & 255 };
+}
+
+// Wash a hex colour toward white by `amt` (0..1); used to pale the juveniles.
+function lightenHex(hex, amt) {
+  const { r, g, b } = hexToRgb(hex);
+  const mix = (c) => Math.round(c + (255 - c) * amt);
+  return `rgb(${mix(r)},${mix(g)},${mix(b)})`;
 }
