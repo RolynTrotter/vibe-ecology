@@ -6,6 +6,7 @@
 // consistent (live count matches per-species tallies).
 import { Simulation } from '../src/simulation.js';
 import { SPECIES } from '../src/config.js';
+import { ENTITY_STATE } from '../src/entities.js';
 
 const sim = new Simulation();
 const TICKS = 3000;
@@ -23,10 +24,14 @@ for (let i = 0; i < TICKS; i++) {
 
   // Cross-check the per-species counts against the alive flags periodically.
   if (i % 500 === 0) {
+    // `living`/`counts` track ALIVE organisms only; DECAYING carcasses keep
+    // their slot (alive flag) but are excluded, so tally the same way.
     const tally = new Array(SPECIES.length).fill(0);
     let live = 0;
     for (let k = 0; k < sim.store.highWater; k++) {
-      if (sim.store.alive[k]) { live++; tally[sim.store.species[k]]++; }
+      if (sim.store.alive[k] && sim.store.state[k] === ENTITY_STATE.ALIVE) {
+        live++; tally[sim.store.species[k]]++;
+      }
     }
     assert(live === sim.store.living, `living mismatch at tick ${i}`);
     for (let sp = 0; sp < SPECIES.length; sp++) {

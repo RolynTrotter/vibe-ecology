@@ -37,10 +37,17 @@ export const TERRAIN_INFO = [
   { id: 'coral', name: 'Coral', color: '#e0738f', minimap: '#e88aa2' },
 ];
 
-// Coral is a refuge: any animal without `coralRefuge` can neither enter coral
-// cells nor hunt prey sitting on them. Pure predicate over a terrain type.
+// Coral is a refuge: a ground animal without `coralRefuge` can't hunt prey
+// sitting on a reef. Pure predicate over a terrain type.
 export function coralHides(sp, terrainType) {
   return terrainType === TERRAIN.CORAL && !sp.coralRefuge;
+}
+
+// Whether coral blocks an animal from *moving* onto/over a cell. Same as the
+// hunting rule, but fliers (`aerial`) pass freely overhead — they just can't
+// pluck prey out of the reef (coralHides still hides it from them).
+export function coralBlocksMovement(sp, terrainType) {
+  return terrainType === TERRAIN.CORAL && !sp.coralRefuge && !sp.aerial;
 }
 
 // Thresholds used to bucket fields into the discrete types above.
@@ -197,24 +204,26 @@ export const SPECIES = [
   {
     id: 'dinsopu', name: 'Dinsopu', kind: 'animal',
     color: '#9b78d4',
+    sexual: true, mateRadius: 36,                           // pairs off; radius scaled to its sparse spacing
     habitat: { elevation: [0.30, 0.70] },                   // amphibious
-    diet: ['ghoti', 'latt', 'unclet'],                      // generalist predator
+    diet: ['ghoti', 'latt', 'unclet', 'necrow'],            // generalist predator; nabs feeding Necrow
     size: 1.3, speed: 0.15, sense: 9,
     metabolism: 0.085, maxEnergy: 80, hungerAt: 0.8, eatGain: 0.55,
     matureAge: 350, reproEnergy: 60, reproCost: 36, reproCooldown: 480,
-    crowdRadius: 10, crowdLimit: 1, fleeFactor: 0, lifespan: 2400, // radius scaled to the smaller world
+    crowdRadius: 14, crowdLimit: 2, fleeFactor: 0, lifespan: 2400, // radius widened so limit-2 keeps the old density
     wexle: { food: 9, material: 5, value: 8 },
   },
   {
     id: 'eagul', name: 'Eagul', kind: 'animal',
     color: '#d6d2c4',
     aerial: true,                                           // flies above the canopy
+    sexual: true, mateRadius: 24,                           // pairs off; radius scaled to its spacing
     habitat: { elevation: [0.30, 1] },                      // flies over everything
     diet: ['ghoti', 'naze'],                                // generalist bird
     size: 1.0, speed: 0.22, sense: 10,
     metabolism: 0.062, maxEnergy: 46, hungerAt: 0.72, eatGain: 0.85,
     matureAge: 230, reproEnergy: 36, reproCost: 20, reproCooldown: 360,
-    crowdRadius: 13, crowdLimit: 1, fleeFactor: 0, lifespan: 1500, // kept sparse
+    crowdRadius: 18, crowdLimit: 2, fleeFactor: 0, lifespan: 1500, // radius widened so limit-2 keeps the old density
     wexle: { food: 6, material: 3, value: 6 },
   },
   {
@@ -227,6 +236,25 @@ export const SPECIES = [
     matureAge: 520, reproEnergy: 92, reproCost: 56, reproCooldown: 720,
     crowdRadius: 26, crowdLimit: 1, fleeFactor: 0, lifespan: 3600,
     wexle: { food: 12, material: 8, value: 14 },
+  },
+
+  // ---- Scavengers ----
+  {
+    id: 'necrow', name: 'Necrow', kind: 'animal',
+    color: '#1c1c22',                                       // small and black
+    aerial: true,                                           // perches/soars; crosses water & coral
+    scavenger: true,                                        // eats decaying carcasses, not the living
+    sexual: true, mateRadius: 45,                           // pairs off; ranges far to find one
+    feedingVulnerable: true,                                // only catchable while down on a carcass
+    bloomOnFeed: true,                                      // its leavings fertilize new plant growth
+    shape: 'triangle',                                      // drawn as a triangle, a break from circles
+    habitat: { elevation: [0.30, 1] },                      // flies over everything to reach carrion
+    diet: [],                                               // carrion-only; handled by the scavenger path
+    size: 0.8, speed: 0.24, sense: 18,                      // small, fast, far-seeing
+    metabolism: 0.04, maxEnergy: 60, hungerAt: 0.6, eatGain: 0.7, // big tank for long carrion-less glides
+    matureAge: 260, reproEnergy: 34, reproCost: 20, reproCooldown: 420,
+    crowdRadius: 30, crowdLimit: 2, fleeFactor: 0,          // limit 2 == "breed only when paired"; carrion-limited
+    wexle: { food: 4, material: 4, value: 9 },
   },
 ];
 
@@ -245,12 +273,13 @@ export const CONFIG = {
     ticksPerSecond: 30,
     maxEntities: 90000,
     cellPx: 1,
+    decayTicks: 360,    // how long an old-age corpse lingers as carrion (~12s)
   },
 
   initial: {
     qelp: 1400, naze: 1800, cacta: 500, muss: 700, mmmapple: 180,
     ghoti: 300, latt: 220, unclet: 120,
-    dinsopu: 22, eagul: 45, qraken: 8,
+    dinsopu: 22, eagul: 45, qraken: 8, necrow: 20,
   },
 
   graph: {

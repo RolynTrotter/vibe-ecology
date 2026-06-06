@@ -1,14 +1,22 @@
 // ===========================================================================
 //  Simulation — one tick of ecosystem logic over the EntityStore.
 // ===========================================================================
-import { SPECIES, CONFIG, MAX_INTERACTION_RADIUS, MIN_HABITABLE, coralHides } from './config.js';
+import {
+  SPECIES, CONFIG, MAX_INTERACTION_RADIUS, MIN_HABITABLE,
+  coralHides, coralBlocksMovement,
+} from './config.js';
 import { World, makeRng } from './world.js';
-import { EntityStore } from './entities.js';
+import { EntityStore, ENTITY_STATE } from './entities.js';
 import { SpatialGrid } from './spatial.js';
 
 // Animals never freeze completely on poor ground; speed floors at this
 // fraction of their max, scaling up to full speed in ideal habitat.
 const MIN_SPEED_FACTOR = 0.35;
+
+// A fresh carcass holds this fraction of the animal's max energy as meat for
+// scavengers; each scavenger bite takes up to SCAVENGE_BITE of it.
+const CARRION_FRACTION = 0.6;
+const SCAVENGE_BITE = 6;
 
 export class Simulation {
   constructor() {
@@ -46,7 +54,7 @@ export class Simulation {
     for (let tries = 0; tries < 60; tries++) {
       const x = this.rand() * w.width;
       const y = this.rand() * w.height;
-      if (sp.kind === 'animal' && coralHides(sp, w.terrainAt(x, y))) continue;
+      if (sp.kind === 'animal' && coralBlocksMovement(sp, w.terrainAt(x, y))) continue;
       const suit = w.suitability(x, y, sp);
       if (suit >= MIN_HABITABLE) {
         if (this.rand() < suit) return [x, y];
@@ -76,7 +84,12 @@ export class Simulation {
       const a = this.rand() * Math.PI * 2;
       this.store.hx[i] = Math.cos(a);
       this.store.hy[i] = Math.sin(a);
-      this.store.age[i] = this.rand() * sp.matureAge;
+      // Seed a realistic spread of ages, not just juveniles: long-lived animals
+      // get the full span up to their lifespan, so the starting population
+      // already has elders that die of old age early (and leave carrion for
+      // scavengers from the outset).
+      const maxAge = sp.lifespan || sp.matureAge * 1.5;
+      this.store.age[i] = this.rand() * maxAge;
       spawned++;
     }
     return spawned;
@@ -88,11 +101,20 @@ export class Simulation {
     const n = s.highWater;
     for (let i = 0; i < n; i++) {
       if (!s.alive[i]) continue;
+      if (s.state[i] === ENTITY_STATE.DECAYING) { this.stepDecay(i); continue; }
       const sp = SPECIES[s.species[i]];
       if (sp.kind === 'plant') this.stepPlant(i, sp);
+      else if (sp.scavenger) this.stepScavenger(i, sp);
       else this.stepAnimal(i, sp);
     }
     this.tick++;
+  }
+
+  // A corpse counts down and is recycled when fully rotted (if a scavenger
+  // hasn't already eaten it).
+  stepDecay(i) {
+    const s = this.store;
+    if ((s.decay[i] -= 1) <= 0) s.kill(i);
   }
 
   // ---- Plants -----------------------------------------------------------
@@ -146,6 +168,7 @@ export class Simulation {
         for (let k = g.cellStart[c]; k < end; k++) {
           const j = g.items[k];
           if (s.species[j] !== speciesIdx) continue;
+          if (s.state[j] === ENTITY_STATE.DECAYING) continue; // carcasses don't crowd
           const dx = s.x[j] - px, dy = s.y[j] - py;
           if (dx * dx + dy * dy <= r2) tally++;
         }
@@ -169,7 +192,11 @@ export class Simulation {
     // ratcheting up and grinding their prey to extinction.
     if (sp.lifespan && s.age[i] > sp.lifespan) {
       const over = (s.age[i] - sp.lifespan) / sp.lifespan;
-      if (this.rand() < 0.004 * (1 + over * 6)) { s.kill(i); return; }
+      if (this.rand() < 0.004 * (1 + over * 6)) {
+        s.die(i, CONFIG.sim.decayTicks);             // leave a fading carcass
+        s.energy[i] = sp.maxEnergy * CARRION_FRACTION; // meat available to scavengers
+        return;
+      }
     }
 
     const px = s.x[i], py = s.y[i];
@@ -221,6 +248,82 @@ export class Simulation {
     }
   }
 
+  // ---- Scavengers (Necrow) ----------------------------------------------
+  // Soar and wander; when hungry, home in on the nearest carcass and feed.
+  // Feeding pins it to the ground (where a predator can reach it) and, once the
+  // carcass is stripped, fertilizes a little burst of plant growth.
+  stepScavenger(i, sp) {
+    const s = this.store;
+    s.age[i] += 1;
+    if (s.reproTimer[i] > 0) s.reproTimer[i] -= 1;
+    s.energy[i] -= sp.metabolism * (0.6 + 0.4 * sp.size);
+    if (s.energy[i] <= 0) { s.kill(i); return; }
+
+    const px = s.x[i], py = s.y[i];
+    let steerX = s.hx[i], steerY = s.hy[i];
+    let feeding = 0;
+
+    const carcass = s.energy[i] < sp.maxEnergy * sp.hungerAt
+      ? this._findNearestCorpse(px, py, sp.sense) : -1;
+    if (carcass >= 0) {
+      const dx = s.x[carcass] - px, dy = s.y[carcass] - py;
+      const d = Math.hypot(dx, dy);
+      if (d <= sp.size + 1.5) {
+        this.eatCarrion(i, sp, carcass);
+        feeding = 1;                         // grounded and exposed while it feeds
+      } else {
+        steerX = dx / (d || 1); steerY = dy / (d || 1);
+      }
+    } else {
+      const t = (this.rand() - 0.5) * 0.6;   // soar/wander
+      const cs = Math.cos(t), sn = Math.sin(t);
+      steerX = s.hx[i] * cs - s.hy[i] * sn;
+      steerY = s.hx[i] * sn + s.hy[i] * cs;
+    }
+
+    s.feeding[i] = feeding;
+    this.move(i, sp, steerX, steerY);
+
+    if (s.age[i] >= sp.matureAge && s.energy[i] >= sp.reproEnergy &&
+        s.reproTimer[i] <= 0) {
+      this.reproduce(i, sp);
+    }
+  }
+
+  // Take a bite of a carcass; when it's stripped, recycle it and trigger a bloom.
+  eatCarrion(i, sp, carcass) {
+    const s = this.store;
+    const bite = Math.min(SCAVENGE_BITE, s.energy[carcass]);
+    s.energy[carcass] -= bite;
+    s.energy[i] = Math.min(sp.maxEnergy, s.energy[i] + bite * sp.eatGain);
+    if (s.energy[carcass] <= 0.5) {
+      const cx = s.x[carcass], cy = s.y[carcass];
+      s.kill(carcass);
+      if (sp.bloomOnFeed) this.bloom(cx, cy);
+    }
+  }
+
+  // A scavenger's leavings enrich the soil: sprout a couple of whatever plant
+  // is best suited to this spot, right where the carcass was stripped.
+  bloom(x, y) {
+    const w = this.world;
+    let best = null, bestSuit = MIN_HABITABLE;
+    for (const sp of SPECIES) {
+      if (sp.kind !== 'plant') continue;
+      const suit = w.suitability(x, y, sp);
+      if (suit > bestSuit) { bestSuit = suit; best = sp; }
+    }
+    if (!best) return;
+    const sprouts = 1 + ((this.rand() * 2) | 0); // 1..2
+    for (let k = 0; k < sprouts; k++) {
+      const ang = this.rand() * Math.PI * 2;
+      const dist = this.rand() * 3;
+      const nx = x + Math.cos(ang) * dist, ny = y + Math.sin(ang) * dist;
+      if (w.suitability(nx, ny, best) < MIN_HABITABLE) continue;
+      this.store.spawn(best.index, nx, ny, best.maxEnergy * 0.4);
+    }
+  }
+
   // Move with a habitat constraint: the step can't land on uninhabitable
   // ground (suitability 0); if it would, bounce by trying axis-aligned slides,
   // else reverse heading. Speed scales smoothly with how suitable the current
@@ -234,9 +337,10 @@ export class Simulation {
     const suitHere = w.suitability(sx, sy, sp);
     const step = sp.speed * (MIN_SPEED_FACTOR + (1 - MIN_SPEED_FACTOR) * suitHere);
 
-    // Can't step onto uninhabitable ground, nor into coral if not a refuge user.
+    // Can't step onto uninhabitable ground, nor into coral (unless a refuge
+    // user or a flier passing overhead).
     const ok = (x, y) =>
-      w.suitability(x, y, sp) > 0 && !coralHides(sp, w.terrainAt(x, y));
+      w.suitability(x, y, sp) > 0 && !coralBlocksMovement(sp, w.terrainAt(x, y));
 
     let nx = sx + ux * step, ny = sy + uy * step;
     if (!ok(nx, ny)) {
@@ -272,6 +376,12 @@ export class Simulation {
 
   reproduce(i, sp) {
     const s = this.store;
+    // Sexual species need a mature partner of their own kind nearby; a lone
+    // disperser can't bud a child on its own.
+    if (sp.sexual && !this._hasMateNear(i, sp)) {
+      s.reproTimer[i] = sp.reproCooldown * 0.5; // check again for a mate later
+      return;
+    }
     // Density dependence (local carrying capacity) — the key stabilizer that
     // keeps predator/prey oscillations from diverging into extinction.
     if (sp.crowdLimit !== undefined) {
@@ -286,7 +396,7 @@ export class Simulation {
     let nx = s.x[i] + Math.cos(ang) * dist;
     let ny = s.y[i] + Math.sin(ang) * dist;
     if (this.world.suitability(nx, ny, sp) < MIN_HABITABLE ||
-        coralHides(sp, this.world.terrainAt(nx, ny))) { nx = s.x[i]; ny = s.y[i]; }
+        coralBlocksMovement(sp, this.world.terrainAt(nx, ny))) { nx = s.x[i]; ny = s.y[i]; }
     const child = s.spawn(sp.index, nx, ny, sp.reproCost,
       Math.cos(ang), Math.sin(ang));
     if (child >= 0) {
@@ -313,6 +423,10 @@ export class Simulation {
         for (let k = g.cellStart[c]; k < end; k++) {
           const j = g.items[k];
           if (!(mask & (1 << s.species[j]))) continue;
+          if (s.state[j] === ENTITY_STATE.DECAYING) continue;   // carcasses aren't hunted/fled
+          // Necrow (feedingVulnerable) can only be targeted while down on a carcass.
+          const cj = SPECIES[s.species[j]];
+          if (cj.feedingVulnerable && !s.feeding[j]) continue;
           const dx = s.x[j] - px, dy = s.y[j] - py;
           const d2 = dx * dx + dy * dy;
           if (d2 < bestD && d2 <= r2) {
@@ -323,5 +437,57 @@ export class Simulation {
       }
     }
     return best;
+  }
+
+  // Nearest decaying carcass within `radius`, regardless of species.
+  _findNearestCorpse(px, py, radius) {
+    const s = this.store, g = this.grid;
+    const r2 = radius * radius;
+    let best = -1, bestD = r2 + 1;
+    const r = Math.max(1, Math.ceil(radius / g.cellSize));
+    const cx = (px / g.cellSize) | 0, cy = (py / g.cellSize) | 0;
+    const minX = Math.max(0, cx - r), maxX = Math.min(g.cols - 1, cx + r);
+    const minY = Math.max(0, cy - r), maxY = Math.min(g.rows - 1, cy + r);
+    for (let gy = minY; gy <= maxY; gy++) {
+      const rowBase = gy * g.cols;
+      for (let gx = minX; gx <= maxX; gx++) {
+        const c = rowBase + gx, end = g.cellStart[c + 1];
+        for (let k = g.cellStart[c]; k < end; k++) {
+          const j = g.items[k];
+          if (s.state[j] !== ENTITY_STATE.DECAYING) continue;
+          const dx = s.x[j] - px, dy = s.y[j] - py;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < bestD && d2 <= r2) { bestD = d2; best = j; }
+        }
+      }
+    }
+    return best;
+  }
+
+  // Is there another mature, living member of `sp` within its mate radius?
+  _hasMateNear(i, sp) {
+    const s = this.store, g = this.grid;
+    const radius = sp.mateRadius || sp.sense || 8;
+    const r2 = radius * radius;
+    const idx = sp.index;
+    const px = s.x[i], py = s.y[i];
+    const r = Math.max(1, Math.ceil(radius / g.cellSize));
+    const cx = (px / g.cellSize) | 0, cy = (py / g.cellSize) | 0;
+    const minX = Math.max(0, cx - r), maxX = Math.min(g.cols - 1, cx + r);
+    const minY = Math.max(0, cy - r), maxY = Math.min(g.rows - 1, cy + r);
+    for (let gy = minY; gy <= maxY; gy++) {
+      const rowBase = gy * g.cols;
+      for (let gx = minX; gx <= maxX; gx++) {
+        const c = rowBase + gx, end = g.cellStart[c + 1];
+        for (let k = g.cellStart[c]; k < end; k++) {
+          const j = g.items[k];
+          if (j === i || s.species[j] !== idx) continue;
+          if (s.state[j] !== ENTITY_STATE.ALIVE || s.age[j] < sp.matureAge) continue;
+          const dx = s.x[j] - px, dy = s.y[j] - py;
+          if (dx * dx + dy * dy <= r2) return true;
+        }
+      }
+    }
+    return false;
   }
 }
