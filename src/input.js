@@ -5,13 +5,17 @@
 export function attachInput(canvas, camera, minimap) {
   const pointers = new Map(); // pointerId -> {x, y}
   let pinchDist = 0;
+  let pinchAngle = 0;
   let pinchMid = { x: 0, y: 0 };
+  let rotAccum = 0;       // twist accumulated this gesture (for the engage threshold)
+  let rotActive = false;  // has the twist passed the threshold yet?
   let movedSincePress = false;
 
   const updatePinch = () => {
     const pts = [...pointers.values()];
     const dx = pts[0].x - pts[1].x, dy = pts[0].y - pts[1].y;
     pinchDist = Math.hypot(dx, dy);
+    pinchAngle = Math.atan2(dy, dx);
     pinchMid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
   };
 
@@ -19,7 +23,7 @@ export function attachInput(canvas, camera, minimap) {
     canvas.setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     movedSincePress = false;
-    if (pointers.size === 2) updatePinch();
+    if (pointers.size === 2) { updatePinch(); rotAccum = 0; rotActive = false; }
   });
 
   canvas.addEventListener('pointermove', (e) => {
@@ -35,12 +39,27 @@ export function attachInput(canvas, camera, minimap) {
     pointers.set(e.pointerId, { x: nx, y: ny });
 
     if (pointers.size === 2) {
-      const oldDist = pinchDist;
+      const rect = canvas.getBoundingClientRect();
+      const oldDist = pinchDist, oldAngle = pinchAngle;
+      const oldMidX = pinchMid.x - rect.left, oldMidY = pinchMid.y - rect.top;
       updatePinch();
       if (oldDist > 0) {
-        const rect = canvas.getBoundingClientRect();
-        camera.zoomAt(pinchMid.x - rect.left, pinchMid.y - rect.top,
-          pinchDist / oldDist);
+        const newMidX = pinchMid.x - rect.left, newMidY = pinchMid.y - rect.top;
+        // World point under the gesture's previous midpoint, captured before we
+        // change anything.
+        const wpt = camera.screenToWorld(oldMidX, oldMidY);
+        camera.zoomBy(pinchDist / oldDist);
+        // Engage rotation only once the twist passes a small threshold, so a
+        // straight pinch/drag doesn't accidentally spin the map.
+        let dA = pinchAngle - oldAngle;
+        if (dA > Math.PI) dA -= 2 * Math.PI; else if (dA < -Math.PI) dA += 2 * Math.PI;
+        rotAccum += dA;
+        if (!rotActive && Math.abs(rotAccum) > 0.12) rotActive = true;
+        if (rotActive) camera.rotateBy(dA);
+        // Re-anchor that world point under the new midpoint: this keeps the
+        // pinch/twist pivoting about the fingers and gives two-finger pan.
+        camera.anchorAt(wpt.x, wpt.y, newMidX, newMidY);
+        camera.clamp();
       }
       movedSincePress = true;
     }
@@ -48,7 +67,7 @@ export function attachInput(canvas, camera, minimap) {
 
   const endPointer = (e) => {
     pointers.delete(e.pointerId);
-    if (pointers.size < 2) pinchDist = 0;
+    if (pointers.size < 2) { pinchDist = 0; rotAccum = 0; rotActive = false; }
   };
   canvas.addEventListener('pointerup', endPointer);
   canvas.addEventListener('pointercancel', endPointer);

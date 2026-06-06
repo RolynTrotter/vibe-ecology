@@ -186,12 +186,21 @@ export class Renderer {
 
     // --- Selected map layer (single scaled blit) ---
     const z = camera.zoom;
+    const rot = camera.rot || 0;
     const ox = camera.worldToScreenX(0);
     const oy = camera.worldToScreenY(0);
     const layer = this.viewMode === 'terrain'
       ? this.terrainLayer : this.fieldLayers[VIEW_FIELD[this.viewMode]];
-    // Crisp texture for terrain; smooth gradients for the analysis maps.
-    ctx.imageSmoothingEnabled = this.viewMode !== 'terrain';
+
+    // Everything in the world (terrain + entities) is drawn under the view
+    // rotation, pivoting about the screen centre (== the camera focus). The
+    // minimap stays upright, outside this transform.
+    ctx.save();
+    if (rot) { ctx.translate(W / 2, H / 2); ctx.rotate(rot); ctx.translate(-W / 2, -H / 2); }
+
+    // Crisp texture for terrain; smooth gradients for the analysis maps (and a
+    // smooth resample when rotated, since nearest-neighbour rotation aliases).
+    ctx.imageSmoothingEnabled = this.viewMode !== 'terrain' || !!rot;
     ctx.drawImage(layer, 0, 0, layer.width, layer.height,
       ox, oy, this.world.width * z, this.world.height * z);
 
@@ -307,15 +316,16 @@ export class Renderer {
     // Coral re-stamped over the water critters (terrain view only) — fish read
     // as hidden in the reef. Crisp blit to match the baked terrain stipple.
     if (this.viewMode === 'terrain') {
-      ctx.imageSmoothingEnabled = false;
+      ctx.imageSmoothingEnabled = !!rot;
       ctx.drawImage(this.coralOverlay, 0, 0, this.coralOverlay.width, this.coralOverlay.height,
         ox, oy, this.world.width * z, this.world.height * z);
     }
     drawPlants(LAYER.CANOPY);     // tree canopies over the ground critters
     drawAnimals(LAYER.AERIAL);    // birds (and Necrow) on top
 
-    ctx.restore();
+    ctx.restore();               // end world-rect clip
 
+    ctx.restore();               // end view rotation
     this.drawMinimap(camera);
   }
 
