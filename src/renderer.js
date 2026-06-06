@@ -215,13 +215,20 @@ export class Renderer {
     const sx = camera.x, sy = camera.y;
     const visible = (wx, wy) => wx >= x0 && wx <= x1 && wy >= y0 && wy <= y1;
     // Append a body outline (circle, or triangle for the odd-one-out) to the
-    // current path at screen position (px,py) with the given radius.
-    const shape = (px, py, r, triangle) => {
+    // current path at screen position (px,py) with the given radius. A triangle
+    // points its nose along the heading (hx,hy); world +y is screen +y so the
+    // heading is used directly.
+    const shape = (px, py, r, triangle, hx, hy) => {
       if (triangle) {
-        const h = r * 1.4;
-        ctx.moveTo(px, py - h);
-        ctx.lineTo(px - r, py + r * 0.8);
-        ctx.lineTo(px + r, py + r * 0.8);
+        let dx = hx, dy = hy;
+        const m = Math.hypot(dx, dy);
+        if (m < 1e-4) { dx = 0; dy = -1; } else { dx /= m; dy /= m; }
+        const nx = -dy, ny = dx;                       // unit perpendicular
+        const ax = px + dx * r * 1.4, ay = py + dy * r * 1.4;   // nose
+        const bx = px - dx * r * 0.8, by = py - dy * r * 0.8;   // base centre
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(bx + nx * r, by + ny * r);
+        ctx.lineTo(bx - nx * r, by - ny * r);
         ctx.closePath();
       } else {
         ctx.moveTo(px + r, py);
@@ -266,7 +273,7 @@ export class Renderer {
           if (s.state[i] !== ENTITY_STATE.ALIVE || s.age[i] < ma) continue;
           const wx = s.x[i], wy = s.y[i];
           if (!visible(wx, wy)) continue;
-          shape((wx - sx) * z + W / 2, (wy - sy) * z + H / 2, baseR, tri);
+          shape((wx - sx) * z + W / 2, (wy - sy) * z + H / 2, baseR, tri, s.hx[i], s.hy[i]);
         }
         ctx.fill();
 
@@ -279,7 +286,7 @@ export class Renderer {
           if (!visible(wx, wy)) continue;
           const f = s.age[i] / ma;
           const r = baseR * (JUVENILE_MIN + (1 - JUVENILE_MIN) * f);
-          shape((wx - sx) * z + W / 2, (wy - sy) * z + H / 2, r, tri);
+          shape((wx - sx) * z + W / 2, (wy - sy) * z + H / 2, r, tri, s.hx[i], s.hy[i]);
         }
         ctx.fill();
       }
