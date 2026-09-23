@@ -72,6 +72,29 @@ baked once to static layers. The Map menu switches what's drawn:
   Rockiness** (the underlying fields).
 - **Show life** — Both / Plants / Animals / None (kind-level, not per species).
 
+### Critters & plants (sprites)
+
+Every organism is drawn as a cutesy sci-fi **sticker sprite**: glowing-tailed
+Latts, moustached Unclets, angler-lure Ghoti, hopping moon-toad Dinsopu,
+plume-crested Eaguls, glow-spotted Qraken, cyan-eyed Necrows, bead-cob Naze,
+sleepy Cacta, glowing-mushroom Muss, and smiling-fruit Mmmapple trees.
+They walk, swim, hop, flap and sway, with babies, corpses, and grazed or
+fruitless plants all looking different.
+
+- Sprites are **procedural**: each species is a small draw function
+  (`src/sprites/critters.js`) that gets baked at load into mipmapped sprite
+  sheets. No image files, sharp at any zoom, and easy to tweak.
+- **Zoom LOD**: fully zoomed out, life is flat colour dots. As you zoom in they
+  become outline-free colour blobs, then crossfade into inked, animated
+  stickers. Far-zoom plants are baked into one cached layer so zooming out
+  stays cheap.
+- Walk cycles follow how far a critter actually moved, so a chase looks
+  frantic and a paused world idles and breathes. Fliers cast a shadow on
+  the ground below them.
+- Open **`sprites.html`** for the sprite gallery: every pose animating on
+  its home terrain, the full zoom/mip ladder, and the colony scene with a
+  population slider.
+
 ### Dev tools (🛠)
 
 For balancing/development — tweaks apply to the running sim:
@@ -99,7 +122,9 @@ A tabbed read-out, closed by default to keep the screen clean:
 - **Colony** tab — the Wexle city. It eats harvested **food** to grow its
   population (and shrinks if starved), unlocking buildings as it grows. The
   colony's population is the real `colonySize` that "As Needed" scales with,
-  closing the loop. Visual + economy are still early (issue #10).
+  closing the loop. It's drawn as an illustrated alien-dusk town: buildings
+  rise as they unlock, the next one glows as a hologram blueprint, and a
+  Wexle wanders the plaza for each citizen. The economy is still early (issue #10).
 
 ## Architecture
 
@@ -118,7 +143,13 @@ src/
   foodweb.js                trophic structure derived from diets
   camera.js                 world<->screen, pan/zoom, clamping
   input.js                  touch + mouse gestures
-  renderer.js               baked map layers + culled, batched entity draw
+  renderer.js               baked map layers + culled, y-sorted sprite draw
+  sprites/
+    paint.js                kawaii sticker kit: cel shading, ink, eyes, glows
+    critters.js             one sprite per species (+ fallbacks for new ones)
+    atlas.js                lazy mipmapped sprite sheets, LOD, menu icons
+    colony_scene.js         the illustrated Wexle town (Colony tab)
+  gallery.js                sprite gallery (sprites.html)
   textures.js               procedural terrain texels + field color ramps
   graphs.js                 rolling population chart
   score.js                  ecosystem-health metric
@@ -141,7 +172,11 @@ The sim is built to scale to the "quite large" end:
 - A **counting-sort spatial grid** rebuilt each tick gives O(1)-ish neighbour
   queries for foraging/flee/crowding, with no per-frame allocation.
 - Rendering pre-bakes terrain to an offscreen canvas (one scaled blit) and
-  draws only on-screen entities, batched by species.
+  draws only on-screen entities. Each entity is a single `drawImage` from a
+  per-species sprite sheet, picked to upscale slightly rather than downscale,
+  because a software canvas downscales far more slowly. Tiny species batch
+  into dot paths, and far-zoom plants come from a world-space cache that
+  refreshes a slice per frame.
 
 Run the checks:
 

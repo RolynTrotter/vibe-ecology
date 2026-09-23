@@ -8,6 +8,8 @@ import { SPECIES, TERRAIN_INFO } from './config.js';
 import { ecosystemHealth } from './score.js';
 import { HARVEST_LEVELS, HARVEST_LABELS } from './harvest.js';
 import { BUILDINGS } from './colony.js';
+import { drawColonyScene } from './sprites/colony_scene.js';
+import { iconURL, drawIcon } from './sprites/atlas.js';
 import { buildFoodWeb } from './foodweb.js';
 
 export class UI {
@@ -82,7 +84,7 @@ export class UI {
       const label = document.createElement('div');
       label.className = 'hm-label';
       label.innerHTML =
-        `<span class="dot" style="background:${sp.color}"></span>${sp.name}`;
+        `<img class="sp-icon" alt="" src="${iconURL(sp)}">${sp.name}`;
       const seg = document.createElement('div');
       seg.className = 'hm-seg';
       this.levelButtons[sp.id] = {};
@@ -187,7 +189,7 @@ export class UI {
     this.countEls = SPECIES.map(sp => {
       const row = document.createElement('div');
       row.className = 'sp-row';
-      row.innerHTML = `<span class="dot" style="background:${sp.color}"></span>` +
+      row.innerHTML = `<img class="sp-icon" alt="" src="${iconURL(sp)}">` +
         `<span class="sp-name">${sp.name}</span>`;
       const count = document.createElement('span');
       count.className = 'sp-count'; count.textContent = '0';
@@ -248,44 +250,26 @@ export class UI {
     ctx.textBaseline = 'middle';
     SPECIES.forEach((sp, i) => {
       const p = pos[i];
-      ctx.fillStyle = sp.color;
-      ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, Math.PI * 2); ctx.fill();
+      drawIcon(ctx, sp, p.x, p.y, 26);
       ctx.fillStyle = '#e8edf2';
-      ctx.fillText(sp.name, p.x, p.y - 12);
+      ctx.fillText(sp.name, p.x, p.y - 19);
     });
   }
 
-  // Slime-mold-ish colony blob; grows with population, with orbiting Wexles.
+  // The illustrated Wexle town (src/sprites/colony_scene.js): buildings rise
+  // as they unlock, the next one glows as a blueprint, and one Wexle per
+  // citizen (capped) wanders the plaza. Redrawn every frame the tab is open.
   drawColony() {
-    const { ctx, w, h } = this.fitCanvas(this.colonyCanvas, 150);
-    ctx.clearRect(0, 0, w, h);
-    const cx = w / 2, cy = h / 2;
-    const pop = this.colony.population;
-    const R = Math.min(h * 0.4, 8 + Math.sqrt(pop) * 4);
-    const t = performance.now() / 1000;
-    // tendrils / satellite blobs
-    ctx.fillStyle = '#2f8f5b';
-    for (let k = 0; k < 6; k++) {
-      const a = (k / 6) * Math.PI * 2 + t * 0.12;
-      ctx.beginPath();
-      ctx.arc(cx + Math.cos(a) * R * 0.8, cy + Math.sin(a) * R * 0.8, R * 0.5, 0, Math.PI * 2);
-      ctx.fill();
+    const c = this.colonyCanvas, cssH = 190;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = c.clientWidth || 360;
+    if (c.width !== Math.round(w * dpr) || c.height !== cssH * dpr) {   // resize only on change
+      c.style.height = cssH + 'px';
+      c.width = Math.round(w * dpr); c.height = cssH * dpr;
     }
-    // core
-    const g = ctx.createRadialGradient(cx, cy, 2, cx, cy, R);
-    g.addColorStop(0, '#7fe6a0'); g.addColorStop(1, '#2f8f5b');
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
-    // Wexles swimming just outside
-    const dots = Math.min(28, Math.round(pop));
-    ctx.fillStyle = '#dff3e6';
-    for (let k = 0; k < dots; k++) {
-      const a = (k / Math.max(1, dots)) * Math.PI * 2 + t * 0.5;
-      const rr = R + 8 + (k % 3) * 4;
-      ctx.beginPath();
-      ctx.arc(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, 1.6, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    const ctx = c.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawColonyScene(ctx, w, cssH, this.colony.population, performance.now() / 1000);
   }
 
   updateColony() {

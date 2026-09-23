@@ -63,6 +63,12 @@ html, body {
 }
 .sp-name { flex: 1; }
 .sp-count { font-variant-numeric: tabular-nums; color: var(--muted); }
+.sp-icon {
+  width: 24px; height: 24px;
+  flex: 0 0 auto;
+  vertical-align: middle;
+  margin: -4px 4px -4px -2px;
+}
 .dot {
   width: 10px; height: 10px;
   border-radius: 50%;
@@ -301,7 +307,7 @@ html, body {
   background: rgba(8, 11, 16, 0.6);
 }
 .foodweb-canvas { height: 250px; }
-.colony-canvas { height: 150px; margin-bottom: 10px; }
+.colony-canvas { height: 190px; margin-bottom: 10px; }
 
 /* Colony tracker */
 .colony-stats {
