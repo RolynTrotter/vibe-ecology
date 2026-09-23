@@ -138,9 +138,12 @@ A tabbed read-out, closed by default to keep the screen clean:
 - **Colony** tab — the Wexle city. It eats harvested **food** to grow its
   population (and shrinks if starved), unlocking buildings as it grows. The
   colony's population is the real `colonySize` that "As Needed" scales with,
-  closing the loop. It's drawn as an illustrated alien-dusk town: buildings
-  rise as they unlock, the next one glows as a hologram blueprint, and a
-  Wexle wanders the plaza for each citizen. The economy is still early (issue #10).
+  closing the loop. It's drawn as a coastal lagoon town, shown as a cutaway at
+  the waterline. The landing pod and a raft workshop float on the swell; the
+  hatchery and Grand Dome sit on the seabed; the granary and spire stand on
+  stilts through the surface. Buildings rise as they unlock and the next one
+  glows as a hologram blueprint. One Wexle per citizen either strolls the
+  dock and islet or swims below in a fishbowl helmet. The economy is still early (issue #10).
 
 ## Architecture
 
