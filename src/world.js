@@ -61,6 +61,7 @@ export class World {
   }
 
   generate(cfg) {
+    this.cfg = { ...cfg };
     const rng = makeRng(cfg.seed);
     const lattice = 64;
     const nElev = makeValueNoise(rng, lattice, lattice);
@@ -68,27 +69,38 @@ export class World {
     const nRock = makeValueNoise(rng, lattice, lattice);
     const nCoral = makeValueNoise(rng, lattice, lattice);
     const s = cfg.noiseScale;
-    const cs = cfg.coralScale, cThr = cfg.coralThreshold;
-    const [elev, moist, rock] = this.fields;
+    const cs = cfg.coralScale;
+    this.coralThreshold = cfg.coralThreshold;
 
+    // The fields are continuous functions of position; cells just sample them
+    // at integer coordinates. Keeping the function lets the terrain painter
+    // evaluate it between cells for smooth, cell-consistent contours.
+    // out = [elevation, moisture, rockiness, coral]
+    this.sample = (x, y, out) => {
+      const e = fbm(nElev, x, y, s);
+      // Moisture: its own field, but wetter in the lowlands (near water).
+      let m = fbm(nMoist, x + 500, y, s * 1.4);
+      m = m * 0.7 + (1 - e) * 0.3;
+      // Rockiness: its own field, but rockier on the heights.
+      let r = fbm(nRock, x, y + 500, s * 1.7);
+      r = r * 0.6 + Math.max(0, e - 0.5) * 0.8;
+      out[0] = e; out[1] = clamp01(m); out[2] = clamp01(r);
+      out[3] = fbm(nCoral, x + 900, y + 900, cs);
+      return out;
+    };
+
+    const [elev, moist, rock] = this.fields;
+    const v = [0, 0, 0, 0];
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
         const i = this.idx(x, y);
-        const e = fbm(nElev, x, y, s);
-        // Moisture: its own field, but wetter in the lowlands (near water).
-        let m = fbm(nMoist, x + 500, y, s * 1.4);
-        m = m * 0.7 + (1 - e) * 0.3;
-        // Rockiness: its own field, but rockier on the heights.
-        let r = fbm(nRock, x, y + 500, s * 1.7);
-        r = r * 0.6 + Math.max(0, e - 0.5) * 0.8;
-
-        elev[i] = e;
-        moist[i] = clamp01(m);
-        rock[i] = clamp01(r);
+        this.sample(x, y, v);
+        elev[i] = v[0];
+        moist[i] = v[1];
+        rock[i] = v[2];
         let type = classifyTerrain(elev[i], moist[i], rock[i]);
         // Coral grows in patches on water cells — a refuge feature, not a critter.
-        if ((type === TERRAIN.DEEP_WATER || type === TERRAIN.SHALLOW_WATER) &&
-            fbm(nCoral, x + 900, y + 900, cs) > cThr) {
+        if ((type === TERRAIN.DEEP_WATER || type === TERRAIN.SHALLOW_WATER) && v[3] > this.coralThreshold) {
           type = TERRAIN.CORAL;
         }
         this.terrain[i] = type;

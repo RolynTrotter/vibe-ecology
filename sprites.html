@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0c1016" />
+  <title>Vibe Ecology · Sprites</title>
+  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+  <style>
+    :root { color-scheme: dark; }
+    body { margin: 0; background: #0c1016; color: #e8edf2; font: 14px/1.4 system-ui, sans-serif; }
+    header { padding: 16px 16px 4px; }
+    header h1 { margin: 0; font-size: 20px; }
+    header p { margin: 4px 0 0; color: #8b98a8; }
+    header a { color: #6fdb8f; }
+    #gallery { display: flex; flex-wrap: wrap; gap: 14px; padding: 16px; }
+    .card { background: #151c26; border: 1px solid #243040; border-radius: 12px; padding: 10px; overflow-x: auto; max-width: 100%; box-sizing: border-box; }
+    .card.wide { flex-basis: 100%; }
+    .card h2 { margin: 0 0 8px; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+    .card h2 small { color: #8b98a8; font-weight: 400; }
+    .card canvas { display: block; border-radius: 8px; }
+    .card canvas.colony { width: 100%; }
+    .card input { width: 60%; margin-top: 8px; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+    .cap { color: #8b98a8; font-size: 12px; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Sprite gallery</h1>
+    <p>Every critter, plant, and the Wexle colony, animating live. The strip under
+      each card is the zoom ladder: the actual baked mip sizes, from far-away blob to
+      close-up sticker. <a href="./">← back to the sim</a></p>
+  </header>
+  <main id="gallery"></main>
+  <script type="module" src="./src/gallery.js"></script>
+</body>
+</html>

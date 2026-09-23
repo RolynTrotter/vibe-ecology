@@ -65,12 +65,51 @@ after first load via the service worker).
 
 ### Map display (🗺)
 
-Terrain is rendered from procedural per-terrain **textures** (mottle + speckle,
-water ripples, rock fractures) with ordered-dithered blends at boundaries — all
-baked once to static layers. The Map menu switches what's drawn:
-- **View** — Terrain, or a color-ramped map of **Elevation / Moisture /
+The ground is painted in the same sticker style as the critters. It is baked
+from the world's *continuous* fields rather than its cell grid, so shorelines
+and soil edges stay smooth and crisp at every zoom.
+
+- **Water**: deep-to-shallow shading, rippling light, an inked shoreline with
+  white foam, and sun glints that twinkle when you zoom in.
+- **Land**: loam with mossy patches, rippled sand, glossy mud puddles, and
+  gentle hill shading.
+- **Rock and reef**: rock plateaus have cracked plates, an inked rim and a drop
+  shadow. Coral reefs are candy-coloured heads with polyps, and fish swimming
+  over a reef show through it faintly.
+- **Close-up details**: grass tufts, flowers, glowing buds, shells, starfish,
+  pebbles, reeds, lily pads and glowing crystals.
+- **Tiles**: like a maps app, the view sharpens progressively as you zoom. Tiles
+  bake in background Web Workers and never leave holes on screen.
+- **Frame**: the world floats as an inked card in space, and the minimap uses
+  the painted map.
+
+The Map menu switches what's drawn:
+- **View**: Terrain, or a colour-ramped map of **Elevation / Moisture /
   Rockiness** (the underlying fields).
-- **Show life** — Both / Plants / Animals / None (kind-level, not per species).
+- **Show life**: Both / Plants / Animals / None (by kind, not per species).
+
+### Critters & plants (sprites)
+
+Every organism is drawn as a cutesy sci-fi **sticker sprite**: glowing-tailed
+Latts, moustached Unclets, angler-lure Ghoti, hopping moon-toad Dinsopu,
+plume-crested Eaguls, glow-spotted Qraken, cyan-eyed Necrows, bead-cob Naze,
+sleepy Cacta, glowing-mushroom Muss, and smiling-fruit Mmmapple trees.
+They walk, swim, hop, flap and sway, with babies, corpses, and grazed or
+fruitless plants all looking different.
+
+- Sprites are **procedural**: each species is a small draw function
+  (`src/sprites/critters.js`) that gets baked at load into mipmapped sprite
+  sheets. No image files, sharp at any zoom, and easy to tweak.
+- **Zoom LOD**: fully zoomed out, life is flat colour dots. As you zoom in they
+  become outline-free colour blobs, then crossfade into inked, animated
+  stickers. Far-zoom plants are baked into one cached layer so zooming out
+  stays cheap.
+- Walk cycles follow how far a critter actually moved, so a chase looks
+  frantic and a paused world idles and breathes. Fliers cast a shadow on
+  the ground below them.
+- Open **`sprites.html`** for the sprite gallery: every pose animating on
+  its home terrain, the full zoom/mip ladder, and the colony scene with a
+  population slider.
 
 ### Dev tools (🛠)
 
@@ -99,7 +138,9 @@ A tabbed read-out, closed by default to keep the screen clean:
 - **Colony** tab — the Wexle city. It eats harvested **food** to grow its
   population (and shrinks if starved), unlocking buildings as it grows. The
   colony's population is the real `colonySize` that "As Needed" scales with,
-  closing the loop. Visual + economy are still early (issue #10).
+  closing the loop. It's drawn as an illustrated alien-dusk town: buildings
+  rise as they unlock, the next one glows as a hologram blueprint, and a
+  Wexle wanders the plaza for each citizen. The economy is still early (issue #10).
 
 ## Architecture
 
@@ -118,8 +159,18 @@ src/
   foodweb.js                trophic structure derived from diets
   camera.js                 world<->screen, pan/zoom, clamping
   input.js                  touch + mouse gestures
-  renderer.js               baked map layers + culled, batched entity draw
-  textures.js               procedural terrain texels + field color ramps
+  renderer.js               baked map layers + culled, y-sorted sprite draw
+  sprites/
+    paint.js                kawaii sticker kit: cel shading, ink, eyes, glows
+    critters.js             one sprite per species (+ fallbacks for new ones)
+    atlas.js                lazy mipmapped sprite sheets, LOD, menu icons
+    colony_scene.js         the illustrated Wexle town (Colony tab)
+  gallery.js                sprite gallery (sprites.html)
+  terrain/
+    art.js                  per-pixel terrain painter + scattered decorations
+    tiles.js                zoom-level tile pyramid, LRU cache, fallbacks
+    worker.js               off-main-thread tile baking (OffscreenCanvas)
+  textures.js               field color ramps (analysis views)
   graphs.js                 rolling population chart
   score.js                  ecosystem-health metric
   ui.js                     HUD + controls
@@ -140,8 +191,14 @@ The sim is built to scale to the "quite large" end:
   objects, no GC churn during the sim.
 - A **counting-sort spatial grid** rebuilt each tick gives O(1)-ish neighbour
   queries for foraging/flee/crowding, with no per-frame allocation.
-- Rendering pre-bakes terrain to an offscreen canvas (one scaled blit) and
-  draws only on-screen entities, batched by species.
+- Terrain tiles are baked in Web Workers at the zoom level the view needs,
+  choosing the level so tiles are only ever scaled up. When the world fills
+  the screen, the backdrop and frame aren't drawn at all. Rendering draws only
+  on-screen entities. Each entity is a single `drawImage` from a
+  per-species sprite sheet, picked to upscale slightly rather than downscale,
+  because a software canvas downscales far more slowly. Tiny species batch
+  into dot paths, and far-zoom plants come from a world-space cache that
+  refreshes a slice per frame.
 
 Run the checks:
 
