@@ -67,6 +67,7 @@ class Game {
   }
 
   reset() {
+    this.renderer.dispose();          // stop the old world's terrain workers
     this.sim = new Simulation();
     this.camera.world = this.sim.world;
     this.renderer = new Renderer(this.canvas, this.minimap, this.sim.world);

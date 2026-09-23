@@ -1,15 +1,16 @@
 // ===========================================================================
-//  Renderer — bakes static map layers once (textured terrain + field maps),
-//  then each frame blits the selected layer and draws culled, kind-filtered
-//  entities, plus the minimap.
+//  Renderer — draws the world as a sticker card floating in space: the painted
+//  terrain (a worker-baked tile pyramid, terrain/tiles.js) or an analysis field
+//  map, twinkling water glints, then culled, y-sorted life sprites, plus the
+//  minimap.
 // ===========================================================================
-import { SPECIES, CONFIG, TERRAIN, TERRAIN_INFO, classifyDither } from './config.js';
+import { SPECIES, CONFIG, TERRAIN, TERRAIN_INFO } from './config.js';
 import { ENTITY_STATE } from './entities.js';
-import { terrainTexel, fieldRamp } from './textures.js';
+import { fieldRamp } from './textures.js';
+import { TerrainTiles } from './terrain/tiles.js';
 import { BANK, ANIM, animalPose, plantPose, mipFor, FIRST_DETAIL_MIP } from './sprites/atlas.js';
 import { spriteFor, ANCHOR } from './sprites/critters.js';
 
-const TEX_SCALE = 4; // device px per cell in the textured terrain layer
 
 // ---- Life sprites -----------------------------------------------------------
 // Every organism is a baked sprite billboard (src/sprites), sized from its sim
@@ -18,8 +19,9 @@ const TEX_SCALE = 4; // device px per cell in the textured terrain layer
 // is left alone because the sim couples to it.
 
 // Back-to-front layers: flat ground cover, then everything standing on the
-// ground (plants, critters, carcasses — y-sorted together), then the coral
-// overlay so reef fish look tucked in, then tree canopies, then fliers.
+// ground (plants, critters, carcasses — y-sorted together), then tree
+// canopies, then fliers. Swimmers over coral draw translucent (REEF_ALPHA) so
+// they look tucked into the reef.
 const LAYER = { DECAL: 0, GROUND: 1, CANOPY: 2, AERIAL: 3 };
 function layerOf(def, sprite) {
   if (def.kind === 'plant') return sprite.flat ? LAYER.DECAL : def.canopy ? LAYER.CANOPY : LAYER.GROUND;
@@ -44,6 +46,7 @@ const MAX_PHASE_STEP = 0.3;      // cap walk-cycle advance per frame (fast-forwa
 // growing into the adult form by maturity. JUVENILE_MIN = size at birth.
 const JUVENILE_MIN = 0.45;
 const CORPSE_COLOR = '#7d7d82';  // far-zoom carrion dots
+const REEF_ALPHA = 0.55;
 
 // Mip + crossfade for a sprite `dev` device px wide. Below the band: the far
 // blob alone. In the band: the far blob under the first inked mip at `fade`.
@@ -57,11 +60,6 @@ function lodFor(dev) {
 
 const smoothstep = (a, b, v) => { const k = Math.min(1, Math.max(0, (v - a) / (b - a))); return k * k * (3 - 2 * k); };
 const hash01 = (i) => (Math.imul(i + 1, 2654435761) >>> 0) / 4294967296;
-
-// 4x4 Bayer ordered-dither matrix, normalized to (0,1).
-const BAYER4 = [
-  0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5,
-].map(v => (v + 0.5) / 16);
 
 const VIEW_FIELD = { elevation: 0, moisture: 1, rockiness: 2 };
 
@@ -215,78 +213,15 @@ export class Renderer {
   setShow(plants, animals) { this.showPlants = plants; this.showAnimals = animals; }
 
   buildLayers() {
-    this.terrainLayer = this.bakeTerrain();
-    this.coralOverlay = this.bakeCoralOverlay();
     this.fieldLayers = [0, 1, 2].map(f => this.bakeField(f));
     this.minimapLayer = this.bakeMinimap();
+    // The painted terrain: a progressively-sharpening tile pyramid baked in
+    // workers; the flat type map stands in until the first tiles land.
+    this.terrain = new TerrainTiles(this.world, this.minimapLayer);
   }
 
-  // Hi-res textured terrain with dithered type boundaries, baked once.
-  bakeTerrain() {
-    const w = this.world, W = w.width, H = w.height, TS = TEX_SCALE;
-    const cw = W * TS, ch = H * TS;
-    const off = document.createElement('canvas');
-    off.width = cw; off.height = ch;
-    const octx = off.getContext('2d');
-    const img = octx.createImageData(cw, ch);
-    const data = img.data;
-    const [elev, moist, rock] = w.fields;
-    const bil = (F, fx, fy) => {
-      let x0 = fx | 0, y0 = fy | 0;
-      let x1 = x0 + 1 >= W ? W - 1 : x0 + 1;
-      let y1 = y0 + 1 >= H ? H - 1 : y0 + 1;
-      const tx = fx - x0, ty = fy - y0;
-      const top = F[y0 * W + x0] * (1 - tx) + F[y0 * W + x1] * tx;
-      const bot = F[y1 * W + x0] * (1 - tx) + F[y1 * W + x1] * tx;
-      return top * (1 - ty) + bot * ty;
-    };
-    for (let py = 0; py < ch; py++) {
-      const fy = py / TS, cy = fy | 0;
-      for (let px = 0; px < cw; px++) {
-        const fx = px / TS, cx = fx | 0;
-        const bayer = BAYER4[(py & 3) * 4 + (px & 3)];
-        let type;
-        if (w.terrain[cy * W + cx] === TERRAIN.CORAL) {
-          type = bayer < 0.55 ? TERRAIN.CORAL : TERRAIN.SHALLOW_WATER;
-        } else {
-          const [p, s, mix] = classifyDither(bil(elev, fx, fy), bil(moist, fx, fy), bil(rock, fx, fy));
-          type = mix > 0 && bayer < mix ? s : p;
-        }
-        const c = terrainTexel(type, px, py);
-        const o = (py * cw + px) * 4;
-        data[o] = c.r; data[o + 1] = c.g; data[o + 2] = c.b; data[o + 3] = 255;
-      }
-    }
-    octx.putImageData(img, 0, 0);
-    return off;
-  }
-
-  // Just the coral stipple on a transparent canvas, matching the coral texels
-  // baked into the terrain. Blitted over the water critters each frame so fish
-  // sheltering on a reef look tucked inside it (coral is their refuge).
-  bakeCoralOverlay() {
-    const w = this.world, W = w.width, H = w.height, TS = TEX_SCALE;
-    const cw = W * TS, ch = H * TS;
-    const off = document.createElement('canvas');
-    off.width = cw; off.height = ch;
-    const octx = off.getContext('2d');
-    const img = octx.createImageData(cw, ch); // alpha defaults to 0 (transparent)
-    const data = img.data;
-    for (let py = 0; py < ch; py++) {
-      const cy = (py / TS) | 0;
-      for (let px = 0; px < cw; px++) {
-        const cx = (px / TS) | 0;
-        if (w.terrain[cy * W + cx] !== TERRAIN.CORAL) continue;
-        const bayer = BAYER4[(py & 3) * 4 + (px & 3)];
-        if (bayer >= 0.55) continue;                 // only the coral-coloured texels
-        const c = terrainTexel(TERRAIN.CORAL, px, py);
-        const o = (py * cw + px) * 4;
-        data[o] = c.r; data[o + 1] = c.g; data[o + 2] = c.b; data[o + 3] = 255;
-      }
-    }
-    octx.putImageData(img, 0, 0);
-    return off;
-  }
+  // Stop terrain workers and free tiles (the renderer is rebuilt on reset).
+  dispose() { this.terrain.dispose(); }
 
   // 1px/cell color-ramped map of a continuous field (drawn smoothed).
   bakeField(field) {
@@ -337,13 +272,19 @@ export class Renderer {
     const W = camera.viewW, H = camera.viewH;
     ctx.clearRect(0, 0, W, H);
 
-    // --- Selected map layer (single scaled blit) ---
     const z = camera.zoom;
     const rot = camera.rot || 0;
     const ox = camera.worldToScreenX(0);
     const oy = camera.worldToScreenY(0);
-    const layer = this.viewMode === 'terrain'
-      ? this.terrainLayer : this.fieldLayers[VIEW_FIELD[this.viewMode]];
+    const dpr = this.dpr || 1;
+    const ww = this.world.width * z, wh = this.world.height * z;
+
+    // Does the world card cover the whole screen? Then the backdrop, card
+    // shadow and frame are all hidden: skip those full-screen passes.
+    const vb = camera.visibleBounds();
+    const edgeVisible = vb.x0 < 0 || vb.y0 < 0 || vb.x1 > this.world.width || vb.y1 > this.world.height;
+    // Space beyond the world's edge (upright, screen space).
+    if (edgeVisible) this.drawBackdrop(ctx, W, H, dpr);
 
     // Everything in the world (terrain + entities) is drawn under the view
     // rotation, pivoting about the screen centre (== the camera focus). The
@@ -351,11 +292,31 @@ export class Renderer {
     ctx.save();
     if (rot) { ctx.translate(W / 2, H / 2); ctx.rotate(rot); ctx.translate(-W / 2, -H / 2); }
 
-    // Crisp texture for terrain; smooth gradients for the analysis maps (and a
-    // smooth resample when rotated, since nearest-neighbour rotation aliases).
-    ctx.imageSmoothingEnabled = this.viewMode !== 'terrain' || !!rot;
-    ctx.drawImage(layer, 0, 0, layer.width, layer.height,
-      ox, oy, this.world.width * z, this.world.height * z);
+    // The world floats like a sticker card: soft stacked shadow, then the map.
+    if (edgeVisible) {
+      // Shadow as three thin bands around the card (not full-card fills).
+      ctx.fillStyle = 'rgba(4,2,12,0.22)';
+      for (const g of [14, 9, 5]) {
+        ctx.fillRect(ox - g * 0.6, oy + wh, ww + g * 1.2, g * 1.1);        // below
+        ctx.fillRect(ox - g * 0.6, oy - g * 0.2, g * 0.6, wh + g * 0.2);   // left
+        ctx.fillRect(ox + ww, oy - g * 0.2, g * 0.6, wh + g * 0.2);        // right
+      }
+    }
+    if (this.viewMode === 'terrain') {
+      this.terrain.draw(ctx, camera, ox, oy, z, dpr);
+    } else {
+      const layer = this.fieldLayers[VIEW_FIELD[this.viewMode]];
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(layer, 0, 0, layer.width, layer.height, ox, oy, ww, wh);
+    }
+    if (edgeVisible) {
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#2a1d3d';
+      ctx.strokeRect(ox - 1.5, oy - 1.5, ww + 3, wh + 3);
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(190,170,255,0.35)';
+      ctx.strokeRect(ox - 3.5, oy - 3.5, ww + 7, wh + 7);
+    }
 
     // --- Entities: y-sorted sprite billboards, clipped to the map rectangle
     //     so nothing (including reef coral) spills past the world edge. ---
@@ -372,22 +333,12 @@ export class Renderer {
       ctx.drawImage(pc.canvas, 0, 0, pc.canvas.width, pc.canvas.height,
         ox, oy, pc.canvas.width / pc.ps * z, pc.canvas.height / pc.ps * z);
     }
+    if (this.viewMode === 'terrain') this.drawSparkles(ctx, camera, ox, oy, z, dpr);
     // Sprites stay upright on screen while the map rotates under them, so
     // they're placed at rotated positions but drawn without the rotation.
     // (The clip above survives the transform reset.)
-    const dpr = this.dpr || 1;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    this.drawEntities(sim, camera, cacheMask, () => {
-      // Coral re-stamped over the water critters (terrain view only) — fish
-      // read as hidden in the reef. Crisp blit to match the baked stipple.
-      if (this.viewMode !== 'terrain') return;
-      ctx.save();
-      if (rot) { ctx.translate(W / 2, H / 2); ctx.rotate(rot); ctx.translate(-W / 2, -H / 2); }
-      ctx.imageSmoothingEnabled = !!rot;
-      ctx.drawImage(this.coralOverlay, 0, 0, this.coralOverlay.width, this.coralOverlay.height,
-        ox, oy, this.world.width * z, this.world.height * z);
-      ctx.restore();
-    });
+    this.drawEntities(sim, camera, cacheMask);
     ctx.restore();               // end world-rect clip
 
     ctx.restore();               // end view rotation
@@ -432,7 +383,7 @@ export class Renderer {
     this.nKeys = new Int32Array(4);
   }
 
-  drawEntities(sim, camera, cacheMask, betweenGroundAndCanopy) {
+  drawEntities(sim, camera, cacheMask) {
     const ctx = this.ctx;
     const s = sim.store;
     const z = camera.zoom, rot = camera.rot || 0;
@@ -516,8 +467,6 @@ export class Renderer {
 
     drawLayer(LAYER.DECAL);
     drawLayer(LAYER.GROUND);
-    betweenGroundAndCanopy();
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     drawLayer(LAYER.CANOPY);
     drawLayer(LAYER.AERIAL);
     ctx.globalAlpha = 1;
@@ -559,6 +508,8 @@ export class Renderer {
       if (sprite.aerial && sprite.idleGrounded) anim = grounded ? ANIM.IDLE : ANIM.MOVE;
       t = anim === ANIM.MOVE && moving ? this.mPh[i] : (secs * IDLE_HZ + h) % 1;
       pose = animalPose(baby, anim, this.mFace[i] === 1);
+      // Swimmers sheltering on a reef read as tucked in among the coral.
+      if (!sprite.aerial && this.world.terrainAt(x, y) === TERRAIN.CORAL) alpha = REEF_ALPHA;
       if (sprite.aerial && !grounded) {
         lift = it.boxPx * scale * (sprite.altitude + 0.04 * Math.sin((secs * 0.9 + h) * Math.PI * 2));
       }
@@ -587,10 +538,80 @@ export class Renderer {
     ctx.drawImage(near.canvas, near.sx[f], near.sy[f], near.cell, near.cell, dx, dy, size, size);
   }
 
+  // Deep-space backdrop beyond the world's edge, baked per viewport size.
+  drawBackdrop(ctx, W, H, dpr) {
+    const k = W + 'x' + H + '@' + dpr;
+    if (this._bgKey !== k) {
+      this._bgKey = k;
+      const c = document.createElement('canvas');
+      c.width = Math.round(W * dpr); c.height = Math.round(H * dpr);
+      const g = c.getContext('2d');
+      g.scale(dpr, dpr);
+      const grad = g.createRadialGradient(W * 0.5, H * 0.4, 0, W * 0.5, H * 0.4, Math.hypot(W, H) * 0.7);
+      grad.addColorStop(0, '#1c1640'); grad.addColorStop(1, '#07060f');
+      g.fillStyle = grad; g.fillRect(0, 0, W, H);
+      const neb = [[0.2, 0.25, '#5a2f7a'], [0.8, 0.7, '#1f4f7a'], [0.6, 0.15, '#6b2f5a']];
+      for (const [x, y, col] of neb) {
+        const r = Math.max(W, H) * 0.35;
+        const ng = g.createRadialGradient(W * x, H * y, 0, W * x, H * y, r);
+        ng.addColorStop(0, col + '55'); ng.addColorStop(1, col + '00');
+        g.fillStyle = ng; g.fillRect(0, 0, W, H);
+      }
+      for (let i = 0; i < (W * H) / 900; i++) {
+        const h = hash01(i * 7 + 3), h2 = hash01(i * 13 + 1), h3 = hash01(i * 5 + 11);
+        g.fillStyle = `rgba(255,250,235,${0.25 + h3 * 0.7})`;
+        const r = h3 > 0.93 ? 1.4 : 0.7;
+        g.beginPath(); g.arc(h * W, h2 * H, r, 0, Math.PI * 2); g.fill();
+      }
+      this._bg = c;
+    }
+    ctx.drawImage(this._bg, 0, 0, W, H);
+  }
+
+  // Sun glints twinkling on open water (zoomed in only). Sparse, hash-placed
+  // per cell, each blinking on its own slow cycle; drawn in world space.
+  drawSparkles(ctx, camera, ox, oy, z, dpr) {
+    if (z * dpr < 14) return;
+    if (!this._spark) {
+      const c = document.createElement('canvas');
+      c.width = c.height = 32;
+      const g = c.getContext('2d');
+      const rg = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+      rg.addColorStop(0, 'rgba(255,255,255,0.9)'); rg.addColorStop(0.25, 'rgba(220,245,255,0.35)'); rg.addColorStop(1, 'rgba(220,245,255,0)');
+      g.fillStyle = rg; g.fillRect(0, 0, 32, 32);
+      g.fillStyle = '#fff';
+      g.beginPath();
+      g.moveTo(16, 1); g.quadraticCurveTo(17.2, 14.8, 31, 16); g.quadraticCurveTo(17.2, 17.2, 16, 31);
+      g.quadraticCurveTo(14.8, 17.2, 1, 16); g.quadraticCurveTo(14.8, 14.8, 16, 1); g.fill();
+      this._spark = c;
+    }
+    const w = this.world, b = camera.visibleBounds();
+    const x0 = Math.max(0, Math.floor(b.x0)), x1 = Math.min(w.width - 1, Math.ceil(b.x1));
+    const y0 = Math.max(0, Math.floor(b.y0)), y1 = Math.min(w.height - 1, Math.ceil(b.y1));
+    const secs = performance.now() / 1000;
+    const r = Math.min(12, Math.max(3, z * 0.3));
+    for (let cy = y0; cy <= y1; cy++) {
+      for (let cx = x0; cx <= x1; cx++) {
+        const h = hash01(cy * 4096 + cx);
+        if (h > 0.06) continue;
+        const t = w.terrain[cy * w.width + cx];
+        if (t !== TERRAIN.SHALLOW_WATER && t !== TERRAIN.DEEP_WATER) continue;
+        const ph = Math.sin((secs * 0.45 + h * 97) * Math.PI * 2);
+        if (ph < 0.75) continue;
+        const a = Math.pow((ph - 0.75) / 0.25, 2);
+        ctx.globalAlpha = a;
+        const k = 0.6 + a * 0.4;
+        ctx.drawImage(this._spark, ox + (cx + 0.2 + h * 10 % 0.6) * z - r * k, oy + (cy + 0.3 + (h * 37) % 0.4) * z - r * k, 2 * r * k, 2 * r * k);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
   drawMinimap(camera) {
     const mm = this.minimap, ctx = this.mmCtx;
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(this.minimapLayer, 0, 0, mm.width, mm.height);
+    const art = this.viewMode === 'terrain' && this.terrain.base(mm.width, mm.height);
+    ctx.imageSmoothingEnabled = !!art;
+    ctx.drawImage(art || this.minimapLayer, 0, 0, mm.width, mm.height);
     const b = camera.visibleBounds();
     const sx = mm.width / this.world.width, sy = mm.height / this.world.height;
     ctx.strokeStyle = '#ffffff';

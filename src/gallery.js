@@ -3,8 +3,9 @@
 //  poses animating at full size on its home terrain, plus the LOD ladder
 //  (each mip at its native pixel size) so the zoom transition can be tuned.
 // ===========================================================================
-import { SPECIES, TERRAIN, TERRAIN_INFO } from './config.js';
-import { terrainTexel } from './textures.js';
+import { SPECIES, TERRAIN } from './config.js';
+import { World } from './world.js';
+import { bakeTile, TILE, GUTTER } from './terrain/art.js';
 import { spriteFor, ANCHOR } from './sprites/critters.js';
 import { BANK as bank, MIPS, ANIM, animalPose, plantPose } from './sprites/atlas.js';
 import { drawColonyScene } from './sprites/colony_scene.js';
@@ -20,21 +21,34 @@ const HOME = {
   necrow: TERRAIN.SAND,
 };
 
-// Paint a textured terrain swatch (reuses the map's texel generator).
+// A slice of the real painted world (terrain/art.js), centred on a spot deep
+// inside the species' home terrain, as the card's backdrop.
+const world = new World();
+const SW_P = 22;                                  // painted px per world unit
 const swatches = new Map();
 function swatch(type, w, h) {
   const key = type + ':' + w + 'x' + h;
   if (swatches.has(key)) return swatches.get(key);
-  const c = document.createElement('canvas');
-  c.width = w; c.height = h;
-  const ctx = c.getContext('2d');
-  const img = ctx.createImageData(w, h);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const t = terrainTexel(type, x >> 1, y >> 1);
-    const o = (y * w + x) * 4;
-    img.data[o] = t.r; img.data[o + 1] = t.g; img.data[o + 2] = t.b; img.data[o + 3] = 255;
+  // the cell of this type with the most same-type neighbours (radius 3)
+  let best = [world.width / 2, world.height / 2], bestN = -1;
+  for (let y = 3; y < world.height - 3; y += 2) for (let x = 3; x < world.width - 3; x += 2) {
+    if (world.terrain[world.idx(x, y)] !== type) continue;
+    let n = 0;
+    for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) n += world.terrain[world.idx(x + i, y + j)] === type;
+    if (n > bestN) { bestN = n; best = [x + 0.5, y + 0.5]; }
   }
-  ctx.putImageData(img, 0, 0);
+  const pw = Math.round(w * dpr), ph = Math.round(h * dpr), P = SW_P * dpr;
+  const x0 = Math.max(0, Math.min(Math.round(world.width * P) - pw, Math.round(best[0] * P - pw / 2)));
+  const y0 = Math.max(0, Math.min(Math.round(world.height * P) - ph, Math.round(best[1] * P - ph * 0.7)));
+  const c = document.createElement('canvas');
+  c.width = pw; c.height = ph;
+  const ctx = c.getContext('2d');
+  const mk = (a, b) => { const k = document.createElement('canvas'); k.width = a; k.height = b; return k; };
+  for (let ty = Math.floor(y0 / TILE); ty <= Math.floor((y0 + ph) / TILE); ty++) {
+    for (let tx = Math.floor(x0 / TILE); tx <= Math.floor((x0 + pw) / TILE); tx++) {
+      ctx.drawImage(bakeTile(world, P, tx, ty, mk), GUTTER, GUTTER, TILE, TILE, tx * TILE - x0, ty * TILE - y0, TILE, TILE);
+    }
+  }
   swatches.set(key, c);
   return c;
 }
@@ -103,7 +117,7 @@ function drawCard(c, now) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.imageSmoothingEnabled = true;
   const home = HOME[c.def.id] ?? (c.isPlant ? TERRAIN.DIRT : TERRAIN.SAND);
-  ctx.drawImage(swatch(home, Math.ceil(c.w / 2), Math.ceil(BOX / 2)), 0, 0, c.w, BOX);
+  ctx.drawImage(swatch(home, c.w, BOX), 0, 0, c.w, BOX);
   ctx.fillStyle = '#10151d';
   ctx.fillRect(0, BOX, c.w, LOD_H);
   const top = bank.sheet(c.def, TOP);
